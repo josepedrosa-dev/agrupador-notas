@@ -686,7 +686,8 @@ function renderMapElements() {
             fillOpacity: 0.05,
             color: color,
             weight: 1.5,
-            dashArray: '4, 4'
+            dashArray: '4, 4',
+            interactive: false // Faz com que cliques atravessem a camada e atinjam os marcadores embaixo
         }).addTo(state.layers.circles);
 
         // Desenhar Centróide Físico da Equipe (Ponto central de gravidade)
@@ -709,7 +710,8 @@ function renderMapElements() {
             weight: 3.5,
             opacity: 0.85,
             lineJoin: 'round',
-            dashArray: '1, 6'
+            dashArray: '1, 6',
+            interactive: false // Impede que a linha da rota capture cliques bloqueando os marcadores
         }).addTo(state.layers.routes);
 
         // Desenhar notas atribuídas da equipe

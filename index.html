@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agrupador Inteligente de Notas | Antigravity Logistics</title>
+    <!-- Leaflet.js CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Custom Theme Styling -->
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <div class="logo-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75h6V9m-6 4.5h.008v.008H9V13.5zM12 18a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div>
+                <h1>Agrupador de Notas Geográficas</h1>
+                <div class="subtitle">Planejamento e Otimização Logística de Equipes</div>
+            </div>
+        </div>
+        <div>
+            <button class="btn btn-secondary" id="btnDownloadTemplate" style="width: auto; padding: 0.5rem 1rem; font-size: 0.8rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 1rem; height: 1rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Baixar Modelo CSV
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Painel de Controle (Esquerdo) -->
+        <aside class="control-panel">
+            <!-- Upload Card -->
+            <div class="card">
+                <div class="card-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                    </svg>
+                    1. Base de Notas (CSV)
+                </div>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">⚡</div>
+                    <p>Arraste e solte o CSV de ordens aqui</p>
+                    <span>ou clique para procurar no seu computador</span>
+                    <input type="file" id="fileInput" accept=".csv" style="display: none;">
+                </div>
+                <div class="file-info" id="fileInfo">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 1rem; height: 1rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                    <span id="fileName">modelo.csv carregado</span>
+                </div>
+            </div>
+
+            <!-- Parameters Card -->
+            <div class="card">
+                <div class="card-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                    </svg>
+                    2. Parâmetros de Agrupamento
+                </div>
+                
+                <div class="form-group">
+                    <label for="selectTecnico">Selecionar Técnico</label>
+                    <select id="selectTecnico" disabled>
+                        <option value="">Aguardando carregamento de dados...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <div class="range-slider-header">
+                        <label for="inputNumTeams">Quantidade de Equipes</label>
+                        <span class="range-value" id="valNumTeams">10</span>
+                    </div>
+                    <input type="range" id="inputNumTeams" min="1" max="30" value="10">
+                </div>
+
+                <div class="form-group">
+                    <div class="range-slider-header">
+                        <label for="inputRadius">Raio de Ação Limite</label>
+                        <span class="range-value" id="valRadius">2500m</span>
+                    </div>
+                    <input type="range" id="inputRadius" min="100" max="10000" step="100" value="2500">
+                </div>
+
+                <div class="form-group">
+                    <div class="range-slider-header">
+                        <label for="inputNotesPerTeam">Notas por Equipe</label>
+                        <span class="range-value" id="valNotesPerTeam">6</span>
+                    </div>
+                    <input type="range" id="inputNotesPerTeam" min="1" max="20" value="6">
+                </div>
+            </div>
+
+            <!-- Composition Card -->
+            <div class="card">
+                <div class="card-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    3. Regras de Composição (Cota)
+                </div>
+                <div style="margin-bottom: 0.75rem; display: flex; justify-content: space-between; font-size: 0.75rem;">
+                    <span style="color: var(--text-secondary);">Defina a cota de cada tipo de nota:</span>
+                    <span id="compositionProgress" style="font-weight: 600; color: var(--primary);">Total: 0 / 6</span>
+                </div>
+                <div class="composition-builder" id="compositionBuilder">
+                    <!-- Gerado dinamicamente -->
+                    <div style="text-align: center; font-size: 0.8rem; color: var(--text-muted); padding: 1rem 0;">
+                        Carregue uma base para mapear os tipos de notas
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn" id="btnGroup" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                </svg>
+                Otimizar & Agrupar
+            </button>
+        </aside>
+
+        <!-- Área de Trabalho (Direita) -->
+        <section class="workspace-panel">
+            <!-- Leaflet Map -->
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+
+            <!-- Painel de Resultados (Inferior) -->
+            <div class="results-panel">
+                <aside class="team-list-sidebar">
+                    <h3>Equipes Geradas</h3>
+                    <div id="teamListContainer" style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
+                        <div style="text-align: center; padding: 2rem 0; font-size: 0.8rem; color: var(--text-muted);">
+                            Nenhum grupo processado ainda
+                        </div>
+                    </div>
+                </aside>
+                
+                <section class="details-view">
+                    <!-- Área de Avisos/Alertas logísticos -->
+                    <div class="warnings-container" id="warningsContainer">
+                        <!-- Avisos dinâmicos gerados pelo fallback e raio -->
+                    </div>
+
+                    <!-- Tabela de Notas Otimizadas da Equipe Ativa -->
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h4 id="activeTeamTitle" style="font-family: var(--font-heading); font-size: 1rem; color: var(--text-primary);">Detalhes da Equipe Selecionada</h4>
+                        <button class="btn btn-secondary" id="btnExportCSV" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem;">
+                            Exportar Roteamento (.CSV)
+                        </button>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">Seq</th>
+                                    <th>Ordem/Nota</th>
+                                    <th>Tipo</th>
+                                    <th>Latitude</th>
+                                    <th>Longitude</th>
+                                    <th>Dist. Centróide</th>
+                                    <th>Ações Manuais</th>
+                                </tr>
+                            </thead>
+                            <tbody id="teamNotesTableBody">
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                                        Selecione uma equipe para visualizar as notas atribuídas e rotas sugeridas
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal de Alerta de Fallback / Confirmação -->
+    <div class="modal-overlay" id="fallbackModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" style="display: flex; align-items: center; gap: 0.5rem; color: var(--accent-orange);">
+                    ⚠️ Aviso de Saldo de Notas
+                </div>
+            </div>
+            <div class="modal-body" id="fallbackModalBody">
+                <!-- Conteúdo gerado dinamicamente -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnModalClose" style="width: auto;">Voltar e Ajustar</button>
+                <button class="btn" id="btnModalConfirm" style="width: auto; background: var(--secondary); box-shadow: var(--glow-secondary);">
+                    Prosseguir com Fallbacks
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet.js -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Business and Map Logic scripts -->
+    <script src="algorithm.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

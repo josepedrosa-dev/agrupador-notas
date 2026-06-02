@@ -137,9 +137,18 @@
             <div class="results-panel">
                 <aside class="team-list-sidebar">
                     <h3>Equipes Geradas</h3>
-                    <div id="teamListContainer" style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
-                        <div style="text-align: center; padding: 2rem 0; font-size: 0.8rem; color: var(--text-muted);">
-                            Nenhum grupo processado ainda
+                    <div id="teamListContainer" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
+                        <div style="text-align: center; padding: 1rem 0; font-size: 0.8rem; color: var(--text-muted);">
+                            Nenhum grupo processado
+                        </div>
+                    </div>
+                </aside>
+
+                <aside class="team-list-sidebar" style="border-right: 1px solid var(--border-color);">
+                    <h3>Notas Não Atribuídas</h3>
+                    <div id="unassignedListContainer" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
+                        <div style="text-align: center; padding: 1rem 0; font-size: 0.8rem; color: var(--text-muted);">
+                            Nenhuma nota não atribuída
                         </div>
                     </div>
                 </aside>

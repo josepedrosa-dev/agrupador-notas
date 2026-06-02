@@ -495,6 +495,9 @@ function renderResults() {
     // 1. Renderizar lista de equipes na barra inferior
     renderTeamList();
 
+    // 1B. Renderizar lista de notas órfãs (não atribuídas) na barra lateral
+    renderUnassignedNotesList();
+
     // 2. Renderizar avisos no container
     renderWarnings();
 
@@ -545,6 +548,51 @@ function renderTeamList() {
     });
 }
 
+function renderUnassignedNotesList() {
+    const container = document.getElementById('unassignedListContainer');
+    container.innerHTML = '';
+
+    if (!state.groupedData || state.groupedData.unassignedNotes.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 1.5rem 0; font-size: 0.8rem; color: var(--text-muted);">
+                Nenhuma nota não atribuída
+            </div>
+        `;
+        return;
+    }
+
+    state.groupedData.unassignedNotes.forEach(note => {
+        const item = document.createElement('div');
+        item.className = 'team-item';
+        item.style.cursor = 'default';
+        item.style.borderLeft = '3px solid #6b7280';
+        
+        let selectOptions = `<option value="">Atribuir à...</option>`;
+        state.groupedData.teams.forEach(t => {
+            selectOptions += `<option value="${t.id}">${t.name}</option>`;
+        });
+
+        item.innerHTML = `
+            <div class="team-item-info" style="gap: 0.25rem;">
+                <span class="team-name" style="font-size: 0.8rem; font-weight: 600;">Nota ${note.nota} <span style="font-size: 0.72rem; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px; color: var(--text-secondary);">${note.tipo}</span></span>
+                <span class="team-stats" style="font-size: 0.7rem;">Lat: ${note.latitude.toFixed(4)} | Lng: ${note.longitude.toFixed(4)}</span>
+            </div>
+            <select class="sidebar-assign-select" data-note-id="${note.nota}" style="padding: 0.2rem; font-size: 0.75rem; width: 110px;">
+                ${selectOptions}
+            </select>
+        `;
+
+        item.querySelector('.sidebar-assign-select').addEventListener('change', (e) => {
+            const targetTeamId = e.target.value;
+            if (targetTeamId) {
+                moveNoteManually(note.nota, 'unassigned', targetTeamId);
+            }
+        });
+
+        container.appendChild(item);
+    });
+}
+
 function renderWarnings() {
     const container = document.getElementById('warningsContainer');
     container.innerHTML = '';
@@ -580,17 +628,49 @@ function renderWarnings() {
 }
 
 function renderMapElements() {
-    // 1. Renderizar notas não atribuídas (Sobras)
+    // 1. Renderizar notas não atribuídas (Sobras) com Popup interativo
     state.groupedData.unassignedNotes.forEach(note => {
-        L.circleMarker([note.latitude, note.longitude], {
-            radius: 5,
-            fillColor: '#6b7280', // Cinza
-            color: '#374151',
-            weight: 1,
-            fillOpacity: 0.6
+        let selectOptions = `<option value="">Atribuir à...</option>`;
+        state.groupedData.teams.forEach(t => {
+            selectOptions += `<option value="${t.id}">${t.name}</option>`;
+        });
+
+        const popupContent = `
+            <div style="font-family: 'Plus Jakarta Sans', sans-serif; color: #f8fafc; background: #0f172a; padding: 4px;">
+                <b style="color: var(--accent-rose); display: block; margin-bottom: 4px;">⚠️ Nota Não Atribuída: ${note.nota}</b>
+                <b>Tipo:</b> ${note.tipo}<br>
+                <b>Coordenadas:</b> ${note.latitude.toFixed(5)}, ${note.longitude.toFixed(5)}<br>
+                <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">Atribuir à Equipe:</label>
+                    <select class="map-assign-select" data-note-id="${note.nota}" style="padding: 0.3rem; font-size: 0.75rem; width: 100%; background: #1e293b; color: white; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; outline: none;">
+                        ${selectOptions}
+                    </select>
+                </div>
+            </div>
+        `;
+
+        const marker = L.circleMarker([note.latitude, note.longitude], {
+            radius: 8, // Ligeiramente maior para excelente visibilidade
+            fillColor: '#f43f5e', // Rosa/Vermelho Carmesim brilhante de altíssimo contraste
+            color: '#ffffff', // Borda branca de destaque
+            weight: 2.5,
+            fillOpacity: 0.95
         })
         .addTo(state.layers.notes)
-        .bindPopup(`<b>Nota Órfã: ${note.nota}</b><br>Tipo: ${note.tipo}<br>Status: Fora do raio limite configurado.`);
+        .bindPopup(popupContent);
+
+        marker.on('popupopen', (e) => {
+            const select = e.popup.getElement().querySelector('.map-assign-select');
+            if (select) {
+                select.addEventListener('change', (evt) => {
+                    const targetTeamId = evt.target.value;
+                    if (targetTeamId) {
+                        state.map.closePopup();
+                        moveNoteManually(note.nota, 'unassigned', targetTeamId);
+                    }
+                });
+            }
+        });
     });
 
     // 2. Renderizar cada equipe (notas, rotas, centróides e círculos)
@@ -636,6 +716,29 @@ function renderMapElements() {
         team.assignedNotes.forEach((note, index) => {
             const numLabel = index + 1; // Ordem de visita (TSP)
             
+            let selectOptions = `<option value="">Mover para...</option>`;
+            state.groupedData.teams.forEach(t => {
+                if (t.id !== team.id) {
+                    selectOptions += `<option value="${t.id}">${t.name}</option>`;
+                }
+            });
+            selectOptions += `<option value="unassigned">Desalocar Nota (Não Atribuída)</option>`;
+
+            const popupContent = `
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; color: #f8fafc; background: #0f172a; padding: 4px;">
+                    <b style="color: ${color}; display: block; margin-bottom: 4px;">⚡ Nota ${note.nota} (${note.tipo})</b>
+                    <b>Equipe:</b> ${team.name}<br>
+                    <b>Visita:</b> Sequência #${numLabel}<br>
+                    <b>Coordenadas:</b> ${note.latitude.toFixed(5)}, ${note.longitude.toFixed(5)}<br>
+                    <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">Mapeamento Manual (Override):</label>
+                        <select class="map-move-select" data-note-id="${note.nota}" style="padding: 0.3rem; font-size: 0.75rem; width: 100%; background: #1e293b; color: white; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; outline: none;">
+                            ${selectOptions}
+                        </select>
+                    </div>
+                </div>
+            `;
+
             L.marker([note.latitude, note.longitude], {
                 icon: L.divIcon({
                     className: 'custom-note-marker',
@@ -649,13 +752,19 @@ function renderMapElements() {
                     iconAnchor: [14, 28]
                 })
             }).addTo(state.layers.notes)
-              .bindPopup(`
-                <b>Nota ${note.nota} (${note.tipo})</b><br>
-                Equipe: ${team.name}<br>
-                Sequência de Visita: #${numLabel}<br>
-                Latitude: ${note.latitude}<br>
-                Longitude: ${note.longitude}
-              `);
+              .bindPopup(popupContent)
+              .on('popupopen', (e) => {
+                  const select = e.popup.getElement().querySelector('.map-move-select');
+                  if (select) {
+                      select.addEventListener('change', (evt) => {
+                          const target = evt.target.value;
+                          if (target) {
+                              state.map.closePopup();
+                              moveNoteManually(note.nota, team.id, target);
+                          }
+                      });
+                  }
+              });
         });
     });
 }
@@ -723,30 +832,45 @@ function renderActiveTeamDetails() {
 
 // 7. Transferência Manual (Manual Override)
 function moveNoteManually(noteId, fromTeamId, toTeamTarget) {
-    const fromTeam = state.groupedData.teams.find(t => t.id === fromTeamId);
-    
-    // 1. Remover a nota da equipe de origem
-    const noteIdx = fromTeam.assignedNotes.findIndex(n => n.nota === noteId);
-    if (noteIdx === -1) return;
-    
-    const [movedNote] = fromTeam.assignedNotes.splice(noteIdx, 1);
+    let movedNote = null;
 
-    // 2. Adicionar na equipe de destino ou em unassigned
+    // 1. Remover a nota da origem (pode ser uma equipe ou a lista de órfãs)
+    if (fromTeamId === 'unassigned') {
+        const noteIdx = state.groupedData.unassignedNotes.findIndex(n => n.nota === noteId);
+        if (noteIdx !== -1) {
+            [movedNote] = state.groupedData.unassignedNotes.splice(noteIdx, 1);
+        }
+    } else {
+        const fromTeam = state.groupedData.teams.find(t => t.id === parseInt(fromTeamId));
+        if (fromTeam) {
+            const noteIdx = fromTeam.assignedNotes.findIndex(n => n.nota === noteId);
+            if (noteIdx !== -1) {
+                [movedNote] = fromTeam.assignedNotes.splice(noteIdx, 1);
+            }
+        }
+    }
+
+    if (!movedNote) return;
+
+    // 2. Adicionar na equipe de destino ou em unassigned (órfã)
     if (toTeamTarget === 'unassigned') {
         state.groupedData.unassignedNotes.push(movedNote);
+        const originName = fromTeamId === 'unassigned' ? 'Notas Não Atribuídas' : `Equipe ${fromTeamId}`;
         state.groupedData.warnings.push({
             type: 'info',
-            message: `A Nota ${noteId} foi desalocada manualmente da ${fromTeam.name}.`
+            message: `A Nota ${noteId} foi desalocada manualmente de ${originName} para a lista de Notas Não Atribuídas.`
         });
     } else {
         const toTeamId = parseInt(toTeamTarget);
         const toTeam = state.groupedData.teams.find(t => t.id === toTeamId);
-        toTeam.assignedNotes.push(movedNote);
-        
-        state.groupedData.warnings.push({
-            type: 'info',
-            message: `Nota ${noteId} transferida manualmente da ${fromTeam.name} para a ${toTeam.name}.`
-        });
+        if (toTeam) {
+            toTeam.assignedNotes.push(movedNote);
+            const originName = fromTeamId === 'unassigned' ? 'Notas Não Atribuídas' : `Equipe ${fromTeamId}`;
+            state.groupedData.warnings.push({
+                type: 'info',
+                message: `Nota ${noteId} alocada manualmente de ${originName} para a ${toTeam.name}.`
+            });
+        }
     }
 
     // 3. Recalcular dados das equipes afetadas (Centróide, TSP, Raio)

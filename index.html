@@ -133,6 +133,26 @@
                 <div id="map"></div>
             </div>
 
+            <!-- Barra de Indicadores Globais (KPIs) em Tempo Real -->
+            <div class="kpi-bar" id="kpiBar" style="display: none;">
+                <div class="kpi-card">
+                    <span class="kpi-label">Total de Notas</span>
+                    <span class="kpi-value" id="kpiTotal">0</span>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-label">Atribuídas</span>
+                    <span class="kpi-value" id="kpiAssigned" style="color: var(--secondary);">0 (0%)</span>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-label">Não Atribuídas</span>
+                    <span class="kpi-value" id="kpiUnassigned" style="color: var(--accent-rose);">0 (0%)</span>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-label">Deslocamento Total</span>
+                    <span class="kpi-value" id="kpiDistance" style="color: var(--primary);">0.0 km</span>
+                </div>
+            </div>
+
             <!-- Painel de Resultados (Inferior) -->
             <div class="results-panel">
                 <aside class="team-list-sidebar">
@@ -144,8 +164,15 @@
                     </div>
                 </aside>
 
-                <aside class="team-list-sidebar" style="border-right: 1px solid var(--border-color);">
+                <aside class="team-list-sidebar" style="border-right: 1px solid var(--border-color); display: flex; flex-direction: column;">
                     <h3>Notas Não Atribuídas</h3>
+                    <!-- Filtros rápidos para notas não atribuídas -->
+                    <div style="margin-bottom: 0.5rem; display: flex; gap: 0.4rem; flex-shrink: 0;">
+                        <input type="text" id="searchUnassigned" placeholder="Buscar nota..." style="padding: 0.35rem 0.5rem; font-size: 0.75rem; border-radius: 6px; width: 100%; outline: none; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border-color); color: white;">
+                        <select id="filterUnassigned" style="padding: 0.35rem; font-size: 0.75rem; border-radius: 6px; width: 95px; flex-shrink: 0; background: #1e293b; color: white; border: 1px solid var(--border-color); outline: none;">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
                     <div id="unassignedListContainer" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
                         <div style="text-align: center; padding: 1rem 0; font-size: 0.8rem; color: var(--text-muted);">
                             Nenhuma nota não atribuída
@@ -162,9 +189,14 @@
                     <!-- Tabela de Notas Otimizadas da Equipe Ativa -->
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <h4 id="activeTeamTitle" style="font-family: var(--font-heading); font-size: 1rem; color: var(--text-primary);">Detalhes da Equipe Selecionada</h4>
-                        <button class="btn btn-secondary" id="btnExportCSV" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem;">
-                            Exportar Roteamento (.CSV)
-                        </button>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button class="btn btn-secondary" id="btnResetAdjustments" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem; border-color: rgba(249, 115, 22, 0.25); color: #ffedd5;">
+                                🔄 Restaurar Inicial
+                            </button>
+                            <button class="btn btn-secondary" id="btnExportCSV" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem;">
+                                Exportar Roteamento (.CSV)
+                            </button>
+                        </div>
                     </div>
 
                     <div class="table-wrapper">

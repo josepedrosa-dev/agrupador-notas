@@ -29,7 +29,11 @@ const state = {
         '#f43f5e', // Rose
         '#0284c7', // Sky Blue
         '#22c55e'  // Green
-    ]
+    ],
+    originalGroupedData: null, // Cópia profunda original para restauração
+    unassignedSearch: '',      // Filtro de texto para notas não atribuídas
+    unassignedTypeFilter: '',  // Filtro de tipo para notas não atribuídas
+    mapMarkers: {}             // Mapeamento dinâmico noteId -> Marker do Leaflet
 };
 
 // Dados do modelo CSV incorporados para o download offline instantâneo
@@ -222,6 +226,42 @@ function setupEventListeners() {
     btnExportCSV.addEventListener('click', () => {
         exportResultsCSV();
     });
+
+    // Filtro rápido de busca por ID de nota
+    document.getElementById('searchUnassigned').addEventListener('input', (e) => {
+        state.unassignedSearch = e.target.value.toLowerCase();
+        renderUnassignedNotesList();
+    });
+
+    // Filtro rápido por tipo de nota
+    document.getElementById('filterUnassigned').addEventListener('change', (e) => {
+        state.unassignedTypeFilter = e.target.value;
+        renderUnassignedNotesList();
+    });
+
+    // Botão de Restaurar Agrupamento Inicial (Desfaz alterações manuais)
+    document.getElementById('btnResetAdjustments').addEventListener('click', () => {
+        if (state.originalGroupedData) {
+            // Faz clone profundo para não arrastar referências
+            state.groupedData = JSON.parse(JSON.stringify(state.originalGroupedData));
+            state.activeTeamId = state.groupedData.teams.length > 0 ? state.groupedData.teams[0].id : null;
+            
+            // Força a limpeza das pesquisas rápidas para não confundir o usuário
+            state.unassignedSearch = '';
+            state.unassignedTypeFilter = '';
+            document.getElementById('searchUnassigned').value = '';
+            document.getElementById('filterUnassigned').value = '';
+
+            renderResults();
+
+            // Adiciona um aviso informativo no log
+            state.groupedData.warnings.push({
+                type: 'info',
+                message: 'O planejamento foi restaurado com sucesso para a distribuição matemática inicial.'
+            });
+            renderWarnings();
+        }
+    });
 }
 
 // 3. Processamento do arquivo CSV
@@ -297,6 +337,17 @@ function filterNotesByTecnico() {
         const bounds = L.latLngBounds(state.filteredNotes.map(n => [n.latitude, n.longitude]));
         state.map.fitBounds(bounds, { padding: [50, 50] });
     }
+
+    // Popula filtro de tipos de notas não atribuídas dinamicamente
+    const filterSelect = document.getElementById('filterUnassigned');
+    filterSelect.innerHTML = '<option value="">Todos</option>';
+    const uniqueTypes = [...new Set(state.filteredNotes.map(n => n.tipo))].filter(Boolean);
+    uniqueTypes.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        filterSelect.appendChild(opt);
+    });
 
     // Habilita o botão de agrupar
     document.getElementById('btnGroup').disabled = false;
@@ -448,6 +499,15 @@ function runGrouping() {
     state.groupedData = result;
     state.activeTeamId = result.teams.length > 0 ? result.teams[0].id : null;
 
+    // Salva uma cópia profunda (deep copy) original antes de sofrer qualquer edição manual do usuário
+    state.originalGroupedData = JSON.parse(JSON.stringify(result));
+
+    // Reseta filtros de pesquisa
+    state.unassignedSearch = '';
+    state.unassignedTypeFilter = '';
+    document.getElementById('searchUnassigned').value = '';
+    document.getElementById('filterUnassigned').value = '';
+
     // Verifica se houve avisos graves ou fallbacks para alertar o usuário
     const hasWarnings = result.warnings.some(w => w.type === 'warning' || w.type === 'danger');
     
@@ -483,8 +543,12 @@ function showFallbackModal(warnings) {
 function renderResults() {
     if (!state.groupedData) return;
 
-    // Habilita botão de exportar
+    // Habilita os botões de controle
     document.getElementById('btnExportCSV').disabled = false;
+    document.getElementById('btnResetAdjustments').disabled = false;
+
+    // Reseta mapeamento de marcadores ativos
+    state.mapMarkers = {};
 
     // Limpar camadas anteriores do mapa
     state.layers.notes.clearLayers();
@@ -501,11 +565,14 @@ function renderResults() {
     // 2. Renderizar avisos no container
     renderWarnings();
 
-    // 3. Renderizar todos os pontos no mapa
+    // 3. Renderizar todos os pontos no mapa (Alimenta state.mapMarkers)
     renderMapElements();
 
     // 4. Exibir detalhes da equipe ativa
     renderActiveTeamDetails();
+
+    // 5. Renderizar Indicadores KPI em Tempo Real
+    renderKPIs();
 }
 
 function renderTeamList() {
@@ -552,35 +619,68 @@ function renderUnassignedNotesList() {
     const container = document.getElementById('unassignedListContainer');
     container.innerHTML = '';
 
-    if (!state.groupedData || state.groupedData.unassignedNotes.length === 0) {
+    if (!state.groupedData) return;
+
+    // Filtra dinamicamente as notas com base na busca e tipos
+    let filteredList = state.groupedData.unassignedNotes;
+
+    if (state.unassignedSearch) {
+        filteredList = filteredList.filter(n => 
+            n.nota.toLowerCase().includes(state.unassignedSearch) ||
+            n.tipo.toLowerCase().includes(state.unassignedSearch)
+        );
+    }
+
+    if (state.unassignedTypeFilter) {
+        filteredList = filteredList.filter(n => n.tipo === state.unassignedTypeFilter);
+    }
+
+    if (filteredList.length === 0) {
+        const text = state.groupedData.unassignedNotes.length === 0 ? 'Nenhuma nota não atribuída' : 'Nenhuma nota correspondente';
         container.innerHTML = `
             <div style="text-align: center; padding: 1.5rem 0; font-size: 0.8rem; color: var(--text-muted);">
-                Nenhuma nota não atribuída
+                ${text}
             </div>
         `;
         return;
     }
 
-    state.groupedData.unassignedNotes.forEach(note => {
+    filteredList.forEach(note => {
         const item = document.createElement('div');
         item.className = 'team-item';
-        item.style.cursor = 'default';
-        item.style.borderLeft = '3px solid #6b7280';
+        item.style.cursor = 'pointer';
+        item.style.borderLeft = '3px solid var(--accent-rose)'; // Borda carmesim neon para destaque
         
         let selectOptions = `<option value="">Atribuir à...</option>`;
         state.groupedData.teams.forEach(t => {
-            selectOptions += `<option value="${t.id}">${t.name}</option>`;
+            const capMax = parseInt(document.getElementById('inputNotesPerTeam').value);
+            const capCount = t.assignedNotes.length;
+            const isFull = capCount >= capMax;
+            
+            // Exibe a capacidade em tempo real e desabilita se estiver cheia
+            selectOptions += `<option value="${t.id}" ${isFull ? 'disabled style="color: var(--text-muted);"' : ''}>
+                ${t.name} (${capCount}/${capMax}${isFull ? ' - Cheia' : ''})
+            </option>`;
         });
 
         item.innerHTML = `
             <div class="team-item-info" style="gap: 0.25rem;">
-                <span class="team-name" style="font-size: 0.8rem; font-weight: 600;">Nota ${note.nota} <span style="font-size: 0.72rem; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px; color: var(--text-secondary);">${note.tipo}</span></span>
+                <span class="team-name" style="font-size: 0.8rem; font-weight: 600;">Nota ${note.nota} <span style="font-size: 0.72rem; background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.3); padding: 1px 4px; border-radius: 4px; color: var(--accent-rose); font-weight: 700;">${note.tipo}</span></span>
                 <span class="team-stats" style="font-size: 0.7rem;">Lat: ${note.latitude.toFixed(4)} | Lng: ${note.longitude.toFixed(4)}</span>
             </div>
-            <select class="sidebar-assign-select" data-note-id="${note.nota}" style="padding: 0.2rem; font-size: 0.75rem; width: 110px;">
+            <select class="sidebar-assign-select" data-note-id="${note.nota}" style="padding: 0.2rem; font-size: 0.75rem; width: 110px; background: #1e293b; color: white; border: 1px solid var(--border-color); border-radius: 4px; outline: none; cursor: pointer;">
                 ${selectOptions}
             </select>
         `;
+
+        // Conexão Bidirecional Hover: Passar o mouse foca o mapa na nota órfã
+        item.addEventListener('mouseenter', () => {
+            const marker = state.mapMarkers[note.nota];
+            if (marker) {
+                marker.openPopup();
+                state.map.setView(marker.getLatLng(), state.map.getZoom(), { animate: true });
+            }
+        });
 
         item.querySelector('.sidebar-assign-select').addEventListener('change', (e) => {
             const targetTeamId = e.target.value;
@@ -658,6 +758,9 @@ function renderMapElements() {
         })
         .addTo(state.layers.notes)
         .bindPopup(popupContent);
+
+        // Registra o marcador para hover bidirecional (sidebar <-> mapa)
+        state.mapMarkers[note.nota] = marker;
 
         marker.on('popupopen', (e) => {
             const select = e.popup.getElement().querySelector('.map-assign-select');
@@ -741,7 +844,7 @@ function renderMapElements() {
                 </div>
             `;
 
-            L.marker([note.latitude, note.longitude], {
+            const assignedMarker = L.marker([note.latitude, note.longitude], {
                 icon: L.divIcon({
                     className: 'custom-note-marker',
                     html: `
@@ -767,6 +870,9 @@ function renderMapElements() {
                       });
                   }
               });
+
+            // Registra o marcador para hover bidirecional (sidebar <-> mapa)
+            state.mapMarkers[note.nota] = assignedMarker;
         });
     });
 }
@@ -891,7 +997,44 @@ function moveNoteManually(noteId, fromTeamId, toTeamTarget) {
     renderResults();
 }
 
-// 8. Exportação dos Dados para CSV
+// 8. Indicadores KPI em Tempo Real
+function renderKPIs() {
+    if (!state.groupedData) return;
+
+    // Exibir a barra de KPIs
+    const kpiBar = document.getElementById('kpiBar');
+    kpiBar.style.display = 'flex';
+
+    const totalAssigned = state.groupedData.teams.reduce((sum, t) => sum + t.assignedNotes.length, 0);
+    const totalUnassigned = state.groupedData.unassignedNotes.length;
+    const total = totalAssigned + totalUnassigned;
+    const assignedPct = total > 0 ? Math.round((totalAssigned / total) * 100) : 0;
+    const unassignedPct = total > 0 ? Math.round((totalUnassigned / total) * 100) : 0;
+
+    // Calcular distância total de todas as rotas (soma das distâncias consecutivas de cada equipe)
+    let totalDistanceM = 0;
+    state.groupedData.teams.forEach(team => {
+        if (team.assignedNotes.length > 1) {
+            for (let i = 0; i < team.assignedNotes.length - 1; i++) {
+                const a = team.assignedNotes[i];
+                const b = team.assignedNotes[i + 1];
+                totalDistanceM += GeocodingUtils.haversineDistance(
+                    a.latitude, a.longitude,
+                    b.latitude, b.longitude
+                );
+            }
+        }
+    });
+
+    const totalDistanceKm = (totalDistanceM / 1000).toFixed(1);
+
+    document.getElementById('kpiTotal').textContent = total;
+    document.getElementById('kpiAssigned').textContent = `${totalAssigned} (${assignedPct}%)`;
+    document.getElementById('kpiUnassigned').textContent = `${totalUnassigned} (${unassignedPct}%)`;
+    document.getElementById('kpiDistance').textContent = `${totalDistanceKm} km`;
+}
+
+// 9. Exportação dos Dados para CSV
 function exportResultsCSV() {
     if (!state.groupedData) return;
 

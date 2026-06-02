@@ -194,6 +194,7 @@ function setupEventListeners() {
     // Sincronização dos Sliders de Parâmetros
     inputNumTeams.addEventListener('input', (e) => {
         document.getElementById('valNumTeams').textContent = e.target.value;
+        renderViabilityPanel();
     });
 
     inputRadius.addEventListener('input', (e) => {
@@ -306,7 +307,7 @@ function parseCSVData(text) {
         const row = lines[i].split(',');
         
         state.allNotes.push({
-            tecnico: row[tecnicoIdx]?.trim(),
+            tecnico: row[tecnicoIdx]?.trim() || '(Sem Técnico)',
             nota: row[notaIdx]?.trim(),
             tipo: row[tipoIdx]?.trim().toUpperCase(),
             latitude: parseFloat(row[latIdx]),
@@ -321,10 +322,22 @@ function populateTecnicoDropdown() {
 
     // Acha técnicos únicos
     const tecnicos = [...new Set(state.allNotes.map(n => n.tecnico))].filter(Boolean);
+
+    // Ordenação: técnicos nomeados em ordem alfabética, '(Sem Técnico)' sempre por último
+    tecnicos.sort((a, b) => {
+        if (a === '(Sem Técnico)') return 1;
+        if (b === '(Sem Técnico)') return -1;
+        return a.localeCompare(b, 'pt-BR');
+    });
+
     tecnicos.forEach(t => {
         const opt = document.createElement('option');
         opt.value = t;
-        opt.textContent = t;
+        if (t === '(Sem Técnico)') {
+            opt.textContent = '📍 (Sem Técnico) — Agrupamento automático por distância';
+        } else {
+            opt.textContent = t;
+        }
         select.appendChild(opt);
     });
 }
@@ -474,6 +487,9 @@ function validateCompositionProgress() {
         progressSpan.style.color = 'var(--accent-rose)';
         btnGroup.disabled = true;
     }
+
+    // Atualiza painel de viabilidade em tempo real sempre que a composição mudar
+    renderViabilityPanel();
 }
 
 // 5. Executar Algoritmo de Agrupamento
@@ -821,10 +837,12 @@ function renderMapElements() {
         team.assignedNotes.forEach((note, index) => {
             const numLabel = index + 1; // Ordem de visita (TSP)
             
+            const capMaxMap = parseInt(document.getElementById('inputNotesPerTeam').value);
             let selectOptions = `<option value="">Mover para...</option>`;
             state.groupedData.teams.forEach(t => {
                 if (t.id !== team.id) {
-                    selectOptions += `<option value="${t.id}">${t.name}</option>`;
+                    const isFullMap = t.assignedNotes.length >= capMaxMap;
+                    selectOptions += `<option value="${t.id}" ${isFullMap ? 'disabled' : ''}>${t.name} (${t.assignedNotes.length}/${capMaxMap}${isFullMap ? ' — Cheia' : ''})</option>`;
                 }
             });
             selectOptions += `<option value="unassigned">Desalocar Nota (Não Atribuída)</option>`;
@@ -905,10 +923,12 @@ function renderActiveTeamDetails() {
         const row = document.createElement('tr');
         
         // Criar opções de dropdown para transferência manual (Override)
+        const tableCapMax = parseInt(document.getElementById('inputNotesPerTeam').value);
         let selectOptions = `<option value="">Mover para...</option>`;
         state.groupedData.teams.forEach(t => {
             if (t.id !== team.id) {
-                selectOptions += `<option value="${t.id}">${t.name}</option>`;
+                const isFullTable = t.assignedNotes.length >= tableCapMax;
+                selectOptions += `<option value="${t.id}" ${isFullTable ? 'disabled' : ''}>${t.name} (${t.assignedNotes.length}/${tableCapMax}${isFullTable ? ' — Cheia' : ''})</option>`;
             }
         });
         selectOptions += `<option value="unassigned">Desalocar Nota</option>`;
@@ -940,6 +960,17 @@ function renderActiveTeamDetails() {
 
 // 7. Transferência Manual (Manual Override)
 function moveNoteManually(noteId, fromTeamId, toTeamTarget) {
+    // ── Guarda de capacidade: impede overbooking na equipe de destino ──
+    if (toTeamTarget !== 'unassigned') {
+        const notesPerTeam = parseInt(document.getElementById('inputNotesPerTeam').value);
+        const targetId = parseInt(toTeamTarget);
+        const targetTeam = state.groupedData.teams.find(t => t.id === targetId);
+        if (targetTeam && targetTeam.assignedNotes.length >= notesPerTeam) {
+            showToast(`⛔ ${targetTeam.name} já está na capacidade máxima (${notesPerTeam} notas). Desaloque uma nota antes de adicionar.`, 'danger');
+            return;
+        }
+    }
+
     let movedNote = null;
 
     // 1. Remover a nota da origem (pode ser uma equipe ou a lista de órfãs)
@@ -997,7 +1028,86 @@ function moveNoteManually(noteId, fromTeamId, toTeamTarget) {
     renderResults();
 }
 
-// 8. Indicadores KPI em Tempo Real
+// 8. Painel de Viabilidade Pré-Agrupamento
+function renderViabilityPanel() {
+    const panel = document.getElementById('viabilityPanel');
+    if (!panel) return;
+
+    if (!state.filteredNotes || state.filteredNotes.length === 0) {
+        panel.style.display = 'none';
+        return;
+    }
+
+    const numTeams = parseInt(document.getElementById('inputNumTeams').value);
+    const notesPerTeam = parseInt(document.getElementById('inputNotesPerTeam').value);
+    const totalNeeded = numTeams * notesPerTeam;
+    const totalAvailable = state.filteredNotes.length;
+    const totalOk = totalAvailable >= totalNeeded;
+
+    // Pega a composição ativa da UI
+    const compInputs = document.querySelectorAll('.comp-input');
+    let hasComposition = false;
+    let rows = '';
+
+    compInputs.forEach(input => {
+        const perTeam = parseInt(input.value) || 0;
+        if (perTeam <= 0) return;
+        hasComposition = true;
+        const type = input.getAttribute('data-type');
+        const needed = perTeam * numTeams;
+        const available = state.filteredNotes.filter(n => n.tipo === type).length;
+        const deficit = needed - available;
+        const ok = deficit <= 0;
+        rows += `
+            <tr>
+                <td><span class="viability-badge">${type}</span></td>
+                <td>${needed}</td>
+                <td>${available}</td>
+                <td class="${ok ? 'viability-ok' : 'viability-warn'}">${ok ? '✅ OK' : `⚠️ −${deficit}`}</td>
+            </tr>
+        `;
+    });
+
+    if (!hasComposition) {
+        panel.style.display = 'none';
+        return;
+    }
+
+    panel.style.display = 'block';
+    panel.innerHTML = `
+        <div class="viability-summary ${totalOk ? 'vs-ok' : 'vs-warn'}">
+            <span>📊 ${numTeams} equipes × ${notesPerTeam} notas = <strong>${totalNeeded} necessárias</strong></span>
+            <span>${totalAvailable} disponíveis ${totalOk ? '✅' : '⚠️'}</span>
+        </div>
+        <table class="viability-table">
+            <thead><tr><th>Tipo</th><th>Necessário</th><th>Disponível</th><th>Status</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+// 9. Toast de Notificação Temporária
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = message;
+    container.appendChild(toast);
+
+    // Dois requestAnimationFrame para garantir a transição CSS
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => toast.classList.add('toast-visible'));
+    });
+
+    setTimeout(() => {
+        toast.classList.remove('toast-visible');
+        setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 400);
+    }, 4500);
+}
+
+// 10. Indicadores KPI em Tempo Real
 function renderKPIs() {
     if (!state.groupedData) return;
 

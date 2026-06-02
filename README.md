@@ -7,13 +7,14 @@ Uma ferramenta web monopágina (SPA) de alto desempenho para planejamento, otimi
 ## 🌟 Principais Recursos
 
 *   **Motor Geográfico Robusto (Haversine):** Cálculo exato da distância em metros entre os pontos de serviço na superfície terrestre.
-*   **Número Fixo de Equipes:** Posicionamento estratégico e inteligente de sementes operacionais (centróides iniciais via K-Means simplificado) distribuindo as notas uniformemente entre o número configurado de equipes.
+*   **Número de Equipes Configurado:** O usuário define quantas equipes deseja. O sistema cria exatamente esse número, salvo quando o total de notas é inferior à quantidade de equipes — nesse caso, o número é reduzido automaticamente e um **aviso laranja** é exibido. Em todos os outros cenários, o número de equipes permanece fixo e notas excedentes ficam na lista *"Não Atribuídas"* para ajuste manual.
 *   **Controle de Cotas por Tipo de Nota:** Permite configurar a composição ideal para cada equipe (ex: 4 MDFC e 2 ALGC).
 *   **Mecanismo Inteligente de Fallback (Substituição):** Caso faltem notas do tipo desejado dentro do raio de ação de uma equipe, o sistema preenche as vagas automaticamente com outros tipos de notas disponíveis na região.
 *   **Limitador Rígido de Raio:** Caso a densidade local de notas de qualquer tipo não atenda à capacidade total da equipe dentro do raio máximo, ela é preservada com a quantidade exata de notas disponíveis, disparando alertas informativos.
 *   **Otimização de Rotas (Roteamento TSP Local):** Resolução do problema do Caixeiro Viajante (Traveling Salesman Problem) para as notas de cada equipe através da heurística do *Vizinho Mais Próximo*, organizando e desenhando o trajeto de execução ótimo de 1 a N.
 *   **Ajuste Manual Interativo (Override):** Permite transferir manualmente qualquer nota de uma equipe para outra com um único clique diretamente na tabela de detalhes. O mapa, centróides e as rotas são recalculados instantaneamente!
 *   **Exportação Estruturada:** Download do planejamento logístico em um arquivo CSV estruturado pronto para planilhas (Excel/Google Sheets) com ordens, sequenciamento e distâncias calculadas.
+*   **Campo `tecnico` Opcional:** Notas sem técnico definido (coluna vazia ou ausente) aparecem como grupo **"📍 (Sem Técnico)"** no seletor e são agrupadas automaticamente pela proximidade geográfica, preenchendo equipes por distância. O desempate quando dois centróides estão sobrepostos sempre favorece a equipe com **menor número de notas**.
 
 ---
 

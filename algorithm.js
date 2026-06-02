@@ -119,8 +119,8 @@ class NoteGrouper {
         const actualTeamsCount = Math.min(numTeams, availableNotes.length);
         if (actualTeamsCount < numTeams && availableNotes.length > 0) {
             warnings.push({
-                type: 'info',
-                message: `A quantidade de equipes foi reduzida de ${numTeams} para ${actualTeamsCount} porque existem apenas ${availableNotes.length} notas disponíveis.`
+                type: 'warning',
+                message: `O número de equipes foi ajustado de ${numTeams} para ${actualTeamsCount} porque há apenas ${availableNotes.length} nota(s) disponível(is). Reduza o número de equipes ou adicione mais notas.`
             });
         }
 
@@ -230,7 +230,9 @@ class NoteGrouper {
 
             // Tenta preencher a cota de cada equipe vaga por vaga
             for (let slot = 0; slot < targetCount; slot++) {
-                teams.forEach(team => {
+                // Desempate: equipes com MENOS notas têm prioridade de escolha (evita dominância por ordem de criação)
+                const teamsInPriorityOrder = [...teams].sort((a, b) => a.assignedNotes.length - b.assignedNotes.length);
+                teamsInPriorityOrder.forEach(team => {
                     // Encontra a nota disponível desse tipo que está mais próxima do centróide da equipe
                     let closestNoteIdx = -1;
                     let minDist = Infinity;
@@ -269,7 +271,9 @@ class NoteGrouper {
      * Gera os avisos exigidos pelo usuário.
      */
     static allocateFallbacks(teams, availableNotes, notesPerTeam, maxRadius, warnings) {
-        teams.forEach(team => {
+        // Desempate: equipes com menos notas recebem fallbacks primeiro
+        const sortedTeams = [...teams].sort((a, b) => a.assignedNotes.length - b.assignedNotes.length);
+        sortedTeams.forEach(team => {
             const currentCount = team.assignedNotes.length;
             const needed = notesPerTeam - currentCount;
 

@@ -133,7 +133,7 @@ function initMap() {
     state.map = L.map('map', {
         zoomControl: true,
         attributionControl: false
-    }).setView([-23.550520, -46.633308], 13);
+    }).setView([-9.58785171, -35.76258481], 13);
 
     // Adiciona o tile do OpenStreetMap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(state.map);

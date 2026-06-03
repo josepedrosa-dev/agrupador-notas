@@ -18,8 +18,8 @@
                 </svg>
             </div>
             <div>
-                <h1>Agrupador de Notas Geográficas</h1>
-                <div class="subtitle">Planejamento e Otimização Logística de Equipes</div>
+                <h1>Agrupador de Notas Geograficas</h1>
+                <div class="subtitle">Planejamento e Otimizacao Logistica de Equipes</div>
             </div>
         </div>
         <div>
@@ -44,7 +44,7 @@
                     1. Base de Notas (CSV ou XLSX)
                 </div>
                 <div class="upload-area" id="uploadArea">
-                    <div class="upload-icon">⚡</div>
+                    <div class="upload-icon">*</div>
                     <p>Arraste e solte CSV ou XLSX de ordens aqui</p>
                     <span>aceita .csv e .xlsx com tecnico, nota, tipo, latitude e longitude</span>
                     <input type="file" id="fileInput" accept=".csv,.xlsx" style="display: none;">
@@ -64,11 +64,11 @@
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
                     </svg>
-                    2. Parâmetros de Agrupamento
+                    2. Parametros de Agrupamento
                 </div>
                 
                 <div class="form-group">
-                    <label for="selectTecnico">Selecionar Técnico</label>
+                    <label for="selectTecnico">Selecionar Tecnico</label>
                     <select id="selectTecnico" disabled>
                         <option value="">Aguardando carregamento de dados...</option>
                     </select>
@@ -84,7 +84,7 @@
 
                 <div class="form-group">
                     <div class="range-slider-header">
-                        <label for="inputRadius">Raio de Ação Limite</label>
+                        <label for="inputRadius">Raio de Acao Limite</label>
                         <span class="range-value" id="valRadius">2500m</span>
                     </div>
                     <input type="range" id="inputRadius" min="100" max="10000" step="100" value="2500">
@@ -105,7 +105,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
-                    3. Regras de Composição (Cota)
+                    3. Regras de Composicao (Cota)
                 </div>
                 <div style="margin-bottom: 0.75rem; display: flex; justify-content: space-between; font-size: 0.75rem;">
                     <span style="color: var(--text-secondary);">Defina a cota de cada tipo de nota:</span>
@@ -118,7 +118,7 @@
                     </div>
                 </div>
 
-                <!-- Painel de Viabilidade Pré-Agrupamento -->
+                <!-- Painel de Viabilidade Pre-Agrupamento -->
                 <div id="viabilityPanel" style="display: none; margin-top: 0.75rem;"></div>
             </div>
 
@@ -134,7 +134,7 @@
             </button>
         </aside>
 
-        <!-- Área de Trabalho (Direita) -->
+        <!-- Area de Trabalho (Direita) -->
         <section class="workspace-panel">
             <div class="route-toolbar">
                 <h4 id="activeTeamTitle">Detalhes da Equipe Selecionada</h4>
@@ -157,11 +157,11 @@
                     <span class="kpi-value" id="kpiTotal">0</span>
                 </div>
                 <div class="kpi-card">
-                    <span class="kpi-label">Atribuídas</span>
+                    <span class="kpi-label">Atribuidas</span>
                     <span class="kpi-value" id="kpiAssigned" style="color: var(--secondary);">0 (0%)</span>
                 </div>
                 <div class="kpi-card">
-                    <span class="kpi-label">Não Atribuídas</span>
+                    <span class="kpi-label">Nao Atribuidas</span>
                     <span class="kpi-value" id="kpiUnassigned" style="color: var(--accent-rose);">0 (0%)</span>
                 </div>
                 <div class="kpi-card">
@@ -184,8 +184,8 @@
                 </aside>
 
                 <aside class="team-list-sidebar" style="border-right: 1px solid var(--border-color); display: flex; flex-direction: column;">
-                    <h3>Notas Não Atribuídas</h3>
-                    <!-- Filtros rápidos para notas não atribuídas -->
+                    <h3>Notas Nao Atribuidas</h3>
+                    <!-- Filtros rapidos para notas nao atribuidas -->
                     <div style="margin-bottom: 0.5rem; display: flex; gap: 0.4rem; flex-shrink: 0;">
                         <input type="text" id="searchUnassigned" placeholder="Buscar nota..." style="padding: 0.35rem 0.5rem; font-size: 0.75rem; border-radius: 6px; width: 100%; outline: none; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border-color); color: white;">
                         <select id="filterUnassigned" style="padding: 0.35rem; font-size: 0.75rem; border-radius: 6px; width: 95px; flex-shrink: 0; background: #1e293b; color: white; border: 1px solid var(--border-color); outline: none;">
@@ -194,34 +194,15 @@
                     </div>
                     <div id="unassignedListContainer" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
                         <div style="text-align: center; padding: 1rem 0; font-size: 0.8rem; color: var(--text-muted);">
-                            Nenhuma nota não atribuída
+                            Nenhuma nota nao atribuida
                         </div>
                     </div>
                 </aside>
                 
                 <section class="details-view">
-                    <!-- Área de Avisos/Alertas logísticos -->
+                    <!-- Area de Avisos/Alertas logisticos -->
                     <div class="warnings-container" id="warningsContainer">
-                        <!-- Avisos dinâmicos gerados pelo fallback e raio -->
-                    </div>
-
-                    <!-- Tabela de Notas Otimizadas da Equipe Ativa -->
-                    <div style="display: none;">
-                        <h4 id="activeTeamTitleLegacy" style="font-family: var(--font-heading); font-size: 1rem; color: var(--text-primary);">Detalhes da Equipe Selecionada</h4>
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <button class="btn btn-secondary" id="btnResetAdjustmentsLegacy" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem; border-color: rgba(249, 115, 22, 0.25); color: #ffedd5;">
-                                🔄 Restaurar Inicial
-                            </button>
-                            <button class="btn btn-secondary" id="btnUndoLastMoveLegacy" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem;">
-                                Desfazer
-                            </button>
-                            <button class="btn btn-secondary" id="btnFixLeftoversLegacy" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem; color: #bbf7d0;">
-                                Corrigir Sobras
-                            </button>
-                            <button class="btn btn-secondary" id="btnExportCSVLegacy" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem;">
-                                Exportar Roteamento (.CSV)
-                            </button>
-                        </div>
+                        <!-- Avisos dinamicos gerados pelo fallback e raio -->
                     </div>
 
                     <div class="table-wrapper">
@@ -233,14 +214,14 @@
                                     <th>Tipo</th>
                                     <th>Latitude</th>
                                     <th>Longitude</th>
-                                    <th>Dist. Centróide</th>
-                                    <th>Ações Manuais</th>
+                                    <th>Dist. Centroide</th>
+                                    <th>Acoes Manuais</th>
                                 </tr>
                             </thead>
                             <tbody id="teamNotesTableBody">
                                 <tr>
                                     <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
-                                        Selecione uma equipe para visualizar as notas atribuídas e rotas sugeridas
+                                        Selecione uma equipe para visualizar as notas atribuidas e rotas sugeridas
                                     </td>
                                 </tr>
                             </tbody>
@@ -251,16 +232,16 @@
         </section>
     </main>
 
-    <!-- Modal de Alerta de Fallback / Confirmação -->
+    <!-- Modal de Alerta de Fallback / Confirmacao -->
     <div class="modal-overlay" id="fallbackModal">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title" style="display: flex; align-items: center; gap: 0.5rem; color: var(--accent-orange);">
-                    ⚠️ Aviso de Saldo de Notas
+                    ! Aviso de Saldo de Notas
                 </div>
             </div>
             <div class="modal-body" id="fallbackModalBody">
-                <!-- Conteúdo gerado dinamicamente -->
+                <!-- Conteudo gerado dinamicamente -->
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="btnModalClose" style="width: auto;">Voltar e Ajustar</button>

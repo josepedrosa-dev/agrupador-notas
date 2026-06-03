@@ -420,7 +420,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .leaflet-tile {
-    /* Mapa em escala de cinza / prata de altíssimo contraste */
+    /* Mapa em escala de cinza / prata de altissimo contraste */
     filter: grayscale(100%) contrast(1.15) brightness(0.96) !important;
 }
 
@@ -466,7 +466,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
     border-top: 1px solid var(--border-color);
     backdrop-filter: blur(12px);
     display: grid;
-    grid-template-columns: 260px 260px 1fr; /* Três colunas paralelas: Equipes, Não Atribuídas, Detalhes */
+    grid-template-columns: 260px 260px 1fr; /* Tres colunas paralelas: Equipes, Nao Atribuidas, Detalhes */
     overflow: hidden;
 }
 
@@ -663,7 +663,7 @@ tr:hover td {
     background: rgba(255, 255, 255, 0.01);
 }
 
-/* Modais e Diálogos de Fallback */
+/* Modais e Dialogos de Fallback */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -691,7 +691,7 @@ tr:hover td {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    overflow: hidden; /* Impede que o próprio modal transborde */
+    overflow: hidden; /* Impede que o proprio modal transborde */
 }
 
 .modal-header {
@@ -700,7 +700,7 @@ tr:hover td {
     align-items: center;
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 0.75rem;
-    flex-shrink: 0; /* Impede o cabeçalho de achatar */
+    flex-shrink: 0; /* Impede o cabecalho de achatar */
 }
 
 .modal-title {
@@ -715,7 +715,7 @@ tr:hover td {
     color: var(--text-secondary);
     line-height: 1.5;
     overflow-y: auto; /* Permite rolar os alertas se forem muitos */
-    max-height: 55vh; /* Limita a altura do corpo para não empurrar os botões */
+    max-height: 55vh; /* Limita a altura do corpo para nao empurrar os botoes */
     padding-right: 0.5rem;
     scrollbar-width: thin;
 }
@@ -726,7 +726,7 @@ tr:hover td {
     gap: 0.75rem;
     border-top: 1px solid var(--border-color);
     padding-top: 0.75rem;
-    flex-shrink: 0; /* Impede o rodapé de sumir ou achatar */
+    flex-shrink: 0; /* Impede o rodape de sumir ou achatar */
 }
 
 /* Animations */
@@ -789,9 +789,9 @@ tr:hover td {
     pointer-events: none;
 }
 
-/* ─────────────────────────────────────────────
-   PAINEL DE VIABILIDADE PRÉ-AGRUPAMENTO
-───────────────────────────────────────────── */
+/* ---------------------------------------------
+   PAINEL DE VIABILIDADE PRE-AGRUPAMENTO
+--------------------------------------------- */
 #viabilityPanel {
     border-radius: 8px;
     overflow-x: auto;
@@ -872,9 +872,9 @@ tr:hover td {
     font-weight: 700;
 }
 
-/* ─────────────────────────────────────────────
-   SISTEMA DE TOAST (NOTIFICAÇÕES FLUTUANTES)
-───────────────────────────────────────────── */
+/* ---------------------------------------------
+   SISTEMA DE TOAST (NOTIFICACOES FLUTUANTES)
+--------------------------------------------- */
 #toastContainer {
     position: fixed;
     bottom: 1.5rem;

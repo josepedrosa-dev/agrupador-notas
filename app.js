@@ -1,20 +1,20 @@
-// Controle de Estado Global da Aplicação
+// Controle de Estado Global da Aplicacao
 const state = {
     allNotes: [],        // Todas as notas importadas do CSV
-    filteredNotes: [],   // Notas filtradas do técnico ativo
-    activeTecnico: '',   // Técnico selecionado
+    filteredNotes: [],   // Notas filtradas do tecnico ativo
+    activeTecnico: '',   // Tecnico selecionado
     groupedData: null,   // Dados retornados pelo algorithm.js (teams, unassigned, warnings)
-    activeTeamId: null,  // ID da equipe selecionada para visualização
-    map: null,           // Instância do Leaflet Map
+    activeTeamId: null,  // ID da equipe selecionada para visualizacao
+    map: null,           // Instancia do Leaflet Map
     layers: {
         notes: null,      // Marcadores de notas
-        centroids: null,  // Marcadores de centróides
+        centroids: null,  // Marcadores de centroides
         routes: null,     // Polilinhas de rotas TSP
-        circles: null     // Círculos do raio de atuação
+        circles: null     // Circulos do raio de atuacao
     },
-    originalGroupedData: null, // Cópia profunda original para restauração
-    unassignedSearch: '',      // Filtro de texto para notas não atribuídas
-    unassignedTypeFilter: '',  // Filtro de tipo para notas não atribuídas
+    originalGroupedData: null, // Copia profunda original para restauracao
+    unassignedSearch: '',      // Filtro de texto para notas nao atribuidas
+    unassignedTypeFilter: '',  // Filtro de tipo para notas nao atribuidas
     mapMarkers: {},            // Mapeamento dinamico noteId -> Marker do Leaflet
     undoStack: [],
     routeStartPoint: null,
@@ -38,7 +38,7 @@ function getTeamColor(teamId) {
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-// Dados do modelo CSV incorporados para o download offline instantâneo
+// Dados do modelo CSV incorporados para o download offline instantaneo
 const SAMPLE_CSV = `tecnico,nota,tipo,latitude,longitude
 Tecnico A,1001,MDFC,-23.5489,-46.6388
 Tecnico A,1002,MDFC,-23.5492,-46.6372
@@ -113,7 +113,7 @@ Tecnico C,3002,MDFC,-23.5220,-46.6135
 Tecnico C,3003,ALGC,-23.5235,-46.6148
 Tecnico C,3004,ALGC,-23.5248,-46.6160`;
 
-// Inicialização dos elementos do DOM
+// Inicializacao dos elementos do DOM
 document.addEventListener('DOMContentLoaded', () => {
     initMap();
     setupEventListeners();
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 1. Inicializar o Leaflet Map
 function initMap() {
-    // São Paulo como centro padrão
+    // Sao Paulo como centro padrao
     state.map = L.map('map', {
         zoomControl: true,
         attributionControl: false
@@ -179,7 +179,7 @@ function setupMapResizer() {
     });
 }
 
-// 2. Configuração de Listeners de Eventos
+// 2. Configuracao de Listeners de Eventos
 function setupEventListeners() {
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('fileInput');
@@ -206,7 +206,7 @@ function setupEventListeners() {
         renderResults();
     });
 
-    // Download de Template CSV Fictício
+    // Download de Template CSV Ficticio
     btnDownloadTemplate.addEventListener('click', () => {
         downloadCSV(SAMPLE_CSV, 'modelo_notas_antigravity.csv');
     });
@@ -242,7 +242,7 @@ function setupEventListeners() {
         }
     });
 
-    // Sincronização dos Sliders de Parâmetros
+    // Sincronizacao dos Sliders de Parametros
     inputNumTeams.addEventListener('input', (e) => {
         document.getElementById('valNumTeams').textContent = e.target.value;
         renderViabilityPanel();
@@ -256,11 +256,11 @@ function setupEventListeners() {
         const val = e.target.value;
         document.getElementById('valNotesPerTeam').textContent = val;
         
-        // Ajusta a tabela de composição para condizer com o novo total exigido
+        // Ajusta a tabela de composicao para condizer com o novo total exigido
         redistributeComposition(val);
     });
 
-    // Mudança de Técnico ativo
+    // Mudanca de Tecnico ativo
     selectTecnico.addEventListener('change', (e) => {
         state.activeTecnico = e.target.value;
         if (state.activeTecnico) {
@@ -269,12 +269,12 @@ function setupEventListeners() {
         }
     });
 
-    // Botão de Agrupamento
+    // Botao de Agrupamento
     btnGroup.addEventListener('click', () => {
         runGrouping();
     });
 
-    // Botão de Exportação
+    // Botao de Exportacao
     btnExportCSV.addEventListener('click', () => {
         exportResultsCSV();
     });
@@ -287,28 +287,28 @@ function setupEventListeners() {
         fixLeftovers();
     });
 
-    // Filtro rápido de busca por ID de nota
+    // Filtro rapido de busca por ID de nota
     document.getElementById('searchUnassigned').addEventListener('input', (e) => {
         state.unassignedSearch = e.target.value.toLowerCase();
         renderUnassignedNotesList();
     });
 
-    // Filtro rápido por tipo de nota
+    // Filtro rapido por tipo de nota
     document.getElementById('filterUnassigned').addEventListener('change', (e) => {
         state.unassignedTypeFilter = e.target.value;
         renderUnassignedNotesList();
     });
 
-    // Botão de Restaurar Agrupamento Inicial (Desfaz alterações manuais)
+    // Botao de Restaurar Agrupamento Inicial (Desfaz alteracoes manuais)
     document.getElementById('btnResetAdjustments').addEventListener('click', () => {
         if (state.originalGroupedData) {
-            // Faz clone profundo para não arrastar referências
+            // Faz clone profundo para nao arrastar referencias
             state.groupedData = JSON.parse(JSON.stringify(state.originalGroupedData));
             state.activeTeamId = state.groupedData.teams.length > 0 ? state.groupedData.teams[0].id : null;
             state.undoStack = [];
             updateUndoButton();
             
-            // Força a limpeza das pesquisas rápidas para não confundir o usuário
+            // Forca a limpeza das pesquisas rapidas para nao confundir o usuario
             state.unassignedSearch = '';
             state.unassignedTypeFilter = '';
             document.getElementById('searchUnassigned').value = '';
@@ -319,7 +319,7 @@ function setupEventListeners() {
             // Adiciona um aviso informativo no log
             state.groupedData.warnings.push({
                 type: 'info',
-                message: 'O planejamento foi restaurado com sucesso para a distribuição matemática inicial.'
+                message: 'O planejamento foi restaurado com sucesso para a distribuicao matematica inicial.'
             });
             renderWarnings();
         }
@@ -358,33 +358,6 @@ function handleUploadedFile(file) {
 
 function parseCSVData(text) {
     return validateTabularRows(parseCSVRows(text));
-    const lines = text.split(/\r?\n/);
-    const headers = lines[0].toLowerCase().split(',');
-    
-    const tecnicoIdx = headers.indexOf('tecnico');
-    const notaIdx = headers.indexOf('nota');
-    const tipoIdx = headers.indexOf('tipo');
-    const latIdx = headers.indexOf('latitude');
-    const lngIdx = headers.indexOf('longitude');
-
-    if (tecnicoIdx === -1 || notaIdx === -1 || tipoIdx === -1 || latIdx === -1 || lngIdx === -1) {
-        alert('Erro no CSV! Certifique-se de ter as colunas: tecnico, nota, tipo, latitude, longitude.');
-        return;
-    }
-
-    state.allNotes = [];
-    for (let i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        const row = lines[i].split(',');
-        
-        state.allNotes.push({
-            tecnico: row[tecnicoIdx]?.trim() || '(Sem Técnico)',
-            nota: row[notaIdx]?.trim(),
-            tipo: row[tipoIdx]?.trim().toUpperCase(),
-            latitude: parseFloat(row[latIdx]),
-            longitude: parseFloat(row[lngIdx])
-        });
-    }
 }
 
 function resetImportedData() {
@@ -605,21 +578,21 @@ function populateTecnicoDropdown() {
     const select = document.getElementById('selectTecnico');
     select.innerHTML = '<option value="__ALL__">Todos os tecnicos e notas sem tecnico</option>';
 
-    // Acha técnicos únicos
+    // Acha tecnicos unicos
     const tecnicos = [...new Set(state.allNotes.map(n => n.tecnico))].filter(Boolean);
 
-    // Ordenação: técnicos nomeados em ordem alfabética, '(Sem Técnico)' sempre por último
+    // Ordenacao: tecnicos nomeados em ordem alfabetica, '(Sem Tecnico)' sempre por ultimo
     tecnicos.sort((a, b) => {
-        if (a === '(Sem Técnico)') return 1;
-        if (b === '(Sem Técnico)') return -1;
+        if (a === '(Sem Tecnico)') return 1;
+        if (b === '(Sem Tecnico)') return -1;
         return a.localeCompare(b, 'pt-BR');
     });
 
     tecnicos.forEach(t => {
         const opt = document.createElement('option');
         opt.value = t;
-        if (t === '(Sem Técnico)') {
-            opt.textContent = '📍 (Sem Técnico) — Agrupamento automático por distância';
+        if (t === '(Sem Tecnico)') {
+            opt.textContent = ' (Sem Tecnico) - Agrupamento automatico por distancia';
         } else {
             opt.textContent = t;
         }
@@ -632,13 +605,13 @@ function filterNotesByTecnico() {
         ? [...state.allNotes]
         : state.allNotes.filter(n => n.tecnico === state.activeTecnico);
     
-    // Zoom no mapa cobrindo a região geográfica deste técnico
+    // Zoom no mapa cobrindo a regiao geografica deste tecnico
     if (state.filteredNotes.length > 0) {
         const bounds = L.latLngBounds(state.filteredNotes.map(n => [n.latitude, n.longitude]));
         state.map.fitBounds(bounds, { padding: [50, 50] });
     }
 
-    // Popula filtro de tipos de notas não atribuídas dinamicamente
+    // Popula filtro de tipos de notas nao atribuidas dinamicamente
     const filterSelect = document.getElementById('filterUnassigned');
     filterSelect.innerHTML = '<option value="">Todos</option>';
     const uniqueTypes = [...new Set(state.filteredNotes.map(n => n.tipo))].filter(Boolean);
@@ -649,16 +622,16 @@ function filterNotesByTecnico() {
         filterSelect.appendChild(opt);
     });
 
-    // Habilita o botão de agrupar
+    // Habilita o botao de agrupar
     document.getElementById('btnGroup').disabled = false;
 }
 
-// 4. Criação da Tabela de Composição (Cotas por Tipo)
+// 4. Criacao da Tabela de Composicao (Cotas por Tipo)
 function buildCompositionTable() {
     const builder = document.getElementById('compositionBuilder');
     builder.innerHTML = '';
 
-    // Encontra todos os tipos de nota que este técnico tem
+    // Encontra todos os tipos de nota que este tecnico tem
     const uniqueTypes = [...new Set(state.filteredNotes.map(n => n.tipo))].filter(Boolean);
     
     if (uniqueTypes.length === 0) {
@@ -674,7 +647,7 @@ function buildCompositionTable() {
         counts[t] = state.filteredNotes.filter(n => n.tipo === t).length;
     });
 
-    // Ordena os tipos por maior frequência
+    // Ordena os tipos por maior frequencia
     const sortedTypes = uniqueTypes.sort((a, b) => counts[b] - counts[a]);
 
     let remaining = notesPerTeam;
@@ -697,7 +670,7 @@ function buildCompositionTable() {
         }
     });
 
-    // Se ainda restou cota por preencher, dá para o dominante
+    // Se ainda restou cota por preencher, da para o dominante
     if (remaining > 0 && sortedTypes[0]) {
         initialComposition[sortedTypes[0]] += remaining;
     }
@@ -716,7 +689,7 @@ function buildCompositionTable() {
         builder.appendChild(row);
     });
 
-    // Event listeners para os inputs de composição
+    // Event listeners para os inputs de composicao
     const inputs = builder.querySelectorAll('.comp-input');
     inputs.forEach(input => {
         input.addEventListener('change', () => validateCompositionProgress());
@@ -775,13 +748,13 @@ function validateCompositionProgress() {
         btnGroup.disabled = true;
     }
 
-    // Atualiza painel de viabilidade em tempo real sempre que a composição mudar
+    // Atualiza painel de viabilidade em tempo real sempre que a composicao mudar
     renderViabilityPanel();
 }
 
 // 5. Executar Algoritmo de Agrupamento
 function getRouteStartPointFromUser() {
-    const useControlBase = window.confirm('O ponto de partida das equipes é na Base da Control no Tabuleiro?');
+    const useControlBase = window.confirm('O ponto de partida das equipes e na Base da Control no Tabuleiro?');
     if (useControlBase) {
         return { ...CONTROL_BASE_POINT };
     }
@@ -816,7 +789,7 @@ function runGrouping() {
     const radius = parseInt(document.getElementById('inputRadius').value);
     const notesPerTeam = parseInt(document.getElementById('inputNotesPerTeam').value);
 
-    // Pega a composição ativa da UI
+    // Pega a composicao ativa da UI
     const composition = {};
     const compInputs = document.querySelectorAll('.comp-input');
     compInputs.forEach(input => {
@@ -826,7 +799,7 @@ function runGrouping() {
         }
     });
 
-    // Roda o motor algorítmico do algorithm.js
+    // Roda o motor algoritmico do algorithm.js
     const result = NoteGrouper.groupNotes(state.filteredNotes, numTeams, notesPerTeam, composition, radius, startPoint);
     result.warnings.unshift({
         type: 'info',
@@ -837,7 +810,7 @@ function runGrouping() {
     state.undoStack = [];
     updateUndoButton();
 
-    // Salva uma cópia profunda (deep copy) original antes de sofrer qualquer edição manual do usuário
+    // Salva uma copia profunda (deep copy) original antes de sofrer qualquer edicao manual do usuario
     state.originalGroupedData = JSON.parse(JSON.stringify(result));
 
     // Reseta filtros de pesquisa
@@ -846,7 +819,7 @@ function runGrouping() {
     document.getElementById('searchUnassigned').value = '';
     document.getElementById('filterUnassigned').value = '';
 
-    // Verifica se houve avisos graves ou fallbacks para alertar o usuário
+    // Verifica se houve avisos graves ou fallbacks para alertar o usuario
     const hasWarnings = result.warnings.some(w => w.type === 'warning' || w.type === 'danger');
     
     if (hasWarnings) {
@@ -861,27 +834,27 @@ function showFallbackModal(warnings) {
     const body = document.getElementById('fallbackModalBody');
     
     body.innerHTML = `
-        <p style="margin-bottom: 1rem;">O algoritmo de agrupamento geográfico identificou as seguintes condições na base para o raio selecionado:</p>
+        <p style="margin-bottom: 1rem;">O algoritmo de agrupamento geografico identificou as seguintes condicoes na base para o raio selecionado:</p>
         <ul style="padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem; color: var(--text-primary);">
             ${warnings.map(w => {
-                let badge = '⚠️';
-                if (w.type === 'danger') badge = '🚨';
+                let badge = '!';
+                if (w.type === 'danger') badge = '!!';
                 return `<li style="list-style-type: none; border-left: 3px solid ${w.type === 'danger' ? 'var(--accent-rose)' : 'var(--accent-orange)'}; padding-left: 0.5rem; margin-bottom: 0.4rem;">${badge} ${w.message}</li>`;
             }).join('')}
         </ul>
         <p style="margin-top: 1rem; font-weight: 500; color: var(--text-secondary);">
-            Gostaria de prosseguir preenchendo as vagas com tipos disponíveis ou deseja fechar este modal para aumentar o raio limite ou diminuir o número de equipes?
+            Gostaria de prosseguir preenchendo as vagas com tipos disponiveis ou deseja fechar este modal para aumentar o raio limite ou diminuir o numero de equipes?
         </p>
     `;
 
     modal.style.display = 'flex';
 }
 
-// 6. Renderizar Resultados (Visualização e Mapa)
+// 6. Renderizar Resultados (Visualizacao e Mapa)
 function renderResults() {
     if (!state.groupedData) return;
 
-    // Habilita os botões de controle
+    // Habilita os botoes de controle
     document.getElementById('btnExportCSV').disabled = false;
     document.getElementById('btnResetAdjustments').disabled = false;
     document.getElementById('btnFixLeftovers').disabled = state.groupedData.unassignedNotes.length === 0;
@@ -899,7 +872,7 @@ function renderResults() {
     // 1. Renderizar lista de equipes na barra inferior
     renderTeamList();
 
-    // 1B. Renderizar lista de notas órfãs (não atribuídas) na barra lateral
+    // 1B. Renderizar lista de notas orfas (nao atribuidas) na barra lateral
     renderUnassignedNotesList();
 
     // 2. Renderizar avisos no container
@@ -937,7 +910,7 @@ function renderTeamList() {
         item.addEventListener('click', () => {
             state.activeTeamId = team.id;
             
-            // Atualiza seleção na UI
+            // Atualiza selecao na UI
             document.querySelectorAll('.team-item').forEach(el => el.classList.remove('active'));
             item.classList.add('active');
 
@@ -976,7 +949,7 @@ function renderUnassignedNotesList() {
     }
 
     if (filteredList.length === 0) {
-        const text = state.groupedData.unassignedNotes.length === 0 ? 'Nenhuma nota não atribuída' : 'Nenhuma nota correspondente';
+        const text = state.groupedData.unassignedNotes.length === 0 ? 'Nenhuma nota nao atribuida' : 'Nenhuma nota correspondente';
         container.innerHTML = `
             <div style="text-align: center; padding: 1.5rem 0; font-size: 0.8rem; color: var(--text-muted);">
                 ${text}
@@ -991,7 +964,7 @@ function renderUnassignedNotesList() {
         item.style.cursor = 'pointer';
         item.style.borderLeft = '3px solid var(--accent-rose)'; // Borda carmesim neon para destaque
         
-        let selectOptions = `<option value="">Atribuir à...</option>`;
+        let selectOptions = `<option value="">Atribuir a...</option>`;
         state.groupedData.teams.forEach(t => {
             const capMax = parseInt(document.getElementById('inputNotesPerTeam').value);
             const capCount = t.assignedNotes.length;
@@ -1013,7 +986,7 @@ function renderUnassignedNotesList() {
             </select>
         `;
 
-        // Conexão Bidirecional Hover: Passar o mouse foca o mapa na nota órfã
+        // Conexao Bidirecional Hover: Passar o mouse foca o mapa na nota orfa
         item.addEventListener('mouseenter', () => {
             const marker = state.mapMarkers[note.nota];
             if (marker) {
@@ -1043,7 +1016,7 @@ function renderWarnings() {
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
                 </svg>
-                Agrupamento otimizado com sucesso! Todas as restrições e cotas geográficas foram 100% atendidas.
+                Agrupamento otimizado com sucesso! Todas as restricoes e cotas geograficas foram 100% atendidas.
             </div>
         `;
         return;
@@ -1068,20 +1041,20 @@ function renderWarnings() {
 }
 
 function renderMapElements() {
-    // 1. Renderizar notas não atribuídas (Sobras) com Popup interativo
+    // 1. Renderizar notas nao atribuidas (Sobras) com Popup interativo
     state.groupedData.unassignedNotes.forEach(note => {
-        let selectOptions = `<option value="">Atribuir à...</option>`;
+        let selectOptions = `<option value="">Atribuir a...</option>`;
         state.groupedData.teams.forEach(t => {
             selectOptions += `<option value="${t.id}">${t.name}</option>`;
         });
 
         const popupContent = `
             <div style="font-family: 'Plus Jakarta Sans', sans-serif; color: #f8fafc; background: #0f172a; padding: 4px;">
-                <b style="color: var(--accent-rose); display: block; margin-bottom: 4px;">⚠️ Nota Não Atribuída: ${note.nota}</b>
+                <b style="color: var(--accent-rose); display: block; margin-bottom: 4px;">! Nota Nao Atribuida: ${note.nota}</b>
                 <b>Tipo:</b> ${note.tipo}<br>
                 <b>Coordenadas:</b> ${note.latitude.toFixed(5)}, ${note.longitude.toFixed(5)}<br>
                 <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">Atribuir à Equipe:</label>
+                    <label style="font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">Atribuir a Equipe:</label>
                     <select class="map-assign-select" data-note-id="${note.nota}" style="padding: 0.3rem; font-size: 0.75rem; width: 100%; background: #1e293b; color: white; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; outline: none;">
                         ${selectOptions}
                     </select>
@@ -1091,7 +1064,7 @@ function renderMapElements() {
 
         const marker = L.circleMarker([note.latitude, note.longitude], {
             radius: 8, // Ligeiramente maior para excelente visibilidade
-            fillColor: '#f43f5e', // Rosa/Vermelho Carmesim brilhante de altíssimo contraste
+            fillColor: '#f43f5e', // Rosa/Vermelho Carmesim brilhante de altissimo contraste
             color: '#ffffff', // Borda branca de destaque
             weight: 2.5,
             fillOpacity: 0.95
@@ -1116,13 +1089,13 @@ function renderMapElements() {
         });
     });
 
-    // 2. Renderizar cada equipe (notas, rotas, centróides e círculos)
+    // 2. Renderizar cada equipe (notas, rotas, centroides e circulos)
     state.groupedData.teams.forEach(team => {
         if (team.assignedNotes.length === 0) return;
 
         const color = getTeamColor(team.id);
 
-        // Desenhar Círculo do Raio de Ação da Equipe (a partir do centróide geográfico calculado)
+        // Desenhar Circulo do Raio de Acao da Equipe (a partir do centroide geografico calculado)
         L.circle([team.centroid.latitude, team.centroid.longitude], {
             radius: team.radius || 10,
             fillColor: color,
@@ -1133,7 +1106,7 @@ function renderMapElements() {
             interactive: false // Faz com que cliques atravessem a camada e atinjam os marcadores embaixo
         }).addTo(state.layers.circles);
 
-        // Desenhar Centróide Físico da Equipe (Ponto central de gravidade)
+        // Desenhar Centroide Fisico da Equipe (Ponto central de gravidade)
         L.marker([team.centroid.latitude, team.centroid.longitude], {
             icon: L.divIcon({
                 className: 'custom-centroid-marker',
@@ -1142,7 +1115,7 @@ function renderMapElements() {
                 iconAnchor: [7, 7]
             })
         }).addTo(state.layers.centroids)
-          .bindPopup(`<b>Centróide da ${team.name}</b><br>Notas: ${team.assignedNotes.length}<br>Raio: ${Math.round(team.radius)} metros.`);
+          .bindPopup(`<b>Centroide da ${team.name}</b><br>Notas: ${team.assignedNotes.length}<br>Raio: ${Math.round(team.radius)} metros.`);
 
         // Criar linha de Rota TSP
         const latlngs = team.assignedNotes.map(n => [n.latitude, n.longitude]);
@@ -1157,7 +1130,7 @@ function renderMapElements() {
             interactive: false // Impede que a linha da rota capture cliques bloqueando os marcadores
         }).addTo(state.layers.routes);
 
-        // Desenhar notas atribuídas da equipe
+        // Desenhar notas atribuidas da equipe
         team.assignedNotes.forEach((note, index) => {
             const numLabel = index + 1; // Ordem de visita (TSP)
             
@@ -1166,16 +1139,16 @@ function renderMapElements() {
             state.groupedData.teams.forEach(t => {
                 if (t.id !== team.id) {
                     const isFullMap = t.assignedNotes.length >= capMaxMap;
-                    selectOptions += `<option value="${t.id}" ${isFullMap ? 'disabled' : ''}>${t.name} (${t.assignedNotes.length}/${capMaxMap}${isFullMap ? ' — Cheia' : ''})</option>`;
+                    selectOptions += `<option value="${t.id}" ${isFullMap ? 'disabled' : ''}>${t.name} (${t.assignedNotes.length}/${capMaxMap}${isFullMap ? ' - Cheia' : ''})</option>`;
                 }
             });
-            selectOptions += `<option value="unassigned">Desalocar Nota (Não Atribuída)</option>`;
+            selectOptions += `<option value="unassigned">Desalocar Nota (Nao Atribuida)</option>`;
 
             const popupContent = `
                 <div style="font-family: 'Plus Jakarta Sans', sans-serif; color: #f8fafc; background: #0f172a; padding: 4px;">
-                    <b style="color: ${color}; display: block; margin-bottom: 4px;">⚡ Nota ${note.nota} (${note.tipo})</b>
+                    <b style="color: ${color}; display: block; margin-bottom: 4px;">* Nota ${note.nota} (${note.tipo})</b>
                     <b>Equipe:</b> ${team.name}<br>
-                    <b>Visita:</b> Sequência #${numLabel}<br>
+                    <b>Visita:</b> Sequencia #${numLabel}<br>
                     <b>Coordenadas:</b> ${note.latitude.toFixed(5)}, ${note.longitude.toFixed(5)}<br>
                     <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
                         <label style="font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">Mapeamento Manual (Override):</label>
@@ -1230,11 +1203,11 @@ function renderActiveTeamDetails() {
 
     const team = state.groupedData.teams.find(t => t.id === state.activeTeamId);
     
-    // Atualizar título
-    document.getElementById('activeTeamTitle').textContent = `Composição sugerida para a ${team.name} (${team.assignedNotes.length} Notas)`;
+    // Atualizar titulo
+    document.getElementById('activeTeamTitle').textContent = `Composicao sugerida para a ${team.name} (${team.assignedNotes.length} Notas)`;
 
     if (!team || team.assignedNotes.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Nenhuma nota atribuída a esta equipe.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Nenhuma nota atribuida a esta equipe.</td></tr>`;
         return;
     }
 
@@ -1246,13 +1219,13 @@ function renderActiveTeamDetails() {
 
         const row = document.createElement('tr');
         
-        // Criar opções de dropdown para transferência manual (Override)
+        // Criar opcoes de dropdown para transferencia manual (Override)
         const tableCapMax = parseInt(document.getElementById('inputNotesPerTeam').value);
         let selectOptions = `<option value="">Mover para...</option>`;
         state.groupedData.teams.forEach(t => {
             if (t.id !== team.id) {
                 const isFullTable = t.assignedNotes.length >= tableCapMax;
-                selectOptions += `<option value="${t.id}" ${isFullTable ? 'disabled' : ''}>${t.name} (${t.assignedNotes.length}/${tableCapMax}${isFullTable ? ' — Cheia' : ''})</option>`;
+                selectOptions += `<option value="${t.id}" ${isFullTable ? 'disabled' : ''}>${t.name} (${t.assignedNotes.length}/${tableCapMax}${isFullTable ? ' - Cheia' : ''})</option>`;
             }
         });
         selectOptions += `<option value="unassigned">Desalocar Nota</option>`;
@@ -1271,7 +1244,7 @@ function renderActiveTeamDetails() {
             </td>
         `;
 
-        // Event listener para transferência manual de nota
+        // Event listener para transferencia manual de nota
         row.querySelector('.manual-move-select').addEventListener('change', (e) => {
             const target = e.target.value;
             if (!target) return;
@@ -1282,15 +1255,15 @@ function renderActiveTeamDetails() {
     });
 }
 
-// 7. Transferência Manual (Manual Override)
+// 7. Transferencia Manual (Manual Override)
 function moveNoteManually(noteId, fromTeamId, toTeamTarget) {
-    // ── Guarda de capacidade: impede overbooking na equipe de destino ──
+    // -- Guarda de capacidade: impede overbooking na equipe de destino --
     if (toTeamTarget !== 'unassigned') {
         const notesPerTeam = parseInt(document.getElementById('inputNotesPerTeam').value);
         const targetId = parseInt(toTeamTarget);
         const targetTeam = state.groupedData.teams.find(t => t.id === targetId);
         if (targetTeam && targetTeam.assignedNotes.length >= notesPerTeam) {
-            showToast(`⛔ ${targetTeam.name} já está na capacidade máxima (${notesPerTeam} notas). Desaloque uma nota antes de adicionar.`, 'danger');
+            showToast(`X ${targetTeam.name} ja esta na capacidade maxima (${notesPerTeam} notas). Desaloque uma nota antes de adicionar.`, 'danger');
             return;
         }
     }
@@ -1298,7 +1271,7 @@ function moveNoteManually(noteId, fromTeamId, toTeamTarget) {
     pushUndoSnapshot();
     let movedNote = null;
 
-    // 1. Remover a nota da origem (pode ser uma equipe ou a lista de órfãs)
+    // 1. Remover a nota da origem (pode ser uma equipe ou a lista de orfas)
     if (fromTeamId === 'unassigned') {
         const noteIdx = state.groupedData.unassignedNotes.findIndex(n => n.nota === noteId);
         if (noteIdx !== -1) {
@@ -1316,20 +1289,20 @@ function moveNoteManually(noteId, fromTeamId, toTeamTarget) {
 
     if (!movedNote) return;
 
-    // 2. Adicionar na equipe de destino ou em unassigned (órfã)
+    // 2. Adicionar na equipe de destino ou em unassigned (orfa)
     if (toTeamTarget === 'unassigned') {
         state.groupedData.unassignedNotes.push(movedNote);
-        const originName = fromTeamId === 'unassigned' ? 'Notas Não Atribuídas' : `Equipe ${fromTeamId}`;
+        const originName = fromTeamId === 'unassigned' ? 'Notas Nao Atribuidas' : `Equipe ${fromTeamId}`;
         state.groupedData.warnings.push({
             type: 'info',
-            message: `A Nota ${noteId} foi desalocada manualmente de ${originName} para a lista de Notas Não Atribuídas.`
+            message: `A Nota ${noteId} foi desalocada manualmente de ${originName} para a lista de Notas Nao Atribuidas.`
         });
     } else {
         const toTeamId = parseInt(toTeamTarget);
         const toTeam = state.groupedData.teams.find(t => t.id === toTeamId);
         if (toTeam) {
             toTeam.assignedNotes.push(movedNote);
-            const originName = fromTeamId === 'unassigned' ? 'Notas Não Atribuídas' : `Equipe ${fromTeamId}`;
+            const originName = fromTeamId === 'unassigned' ? 'Notas Nao Atribuidas' : `Equipe ${fromTeamId}`;
             state.groupedData.warnings.push({
                 type: 'info',
                 message: `Nota ${noteId} alocada manualmente de ${originName} para a ${toTeam.name}.`
@@ -1337,7 +1310,7 @@ function moveNoteManually(noteId, fromTeamId, toTeamTarget) {
         }
     }
 
-    // 3. Recalcular dados das equipes afetadas (Centróide, TSP, Raio)
+    // 3. Recalcular dados das equipes afetadas (Centroide, TSP, Raio)
     state.groupedData.teams.forEach(team => {
         if (team.assignedNotes.length > 0) {
             team.centroid = GeocodingUtils.getCentroid(team.assignedNotes);
@@ -1353,7 +1326,7 @@ function moveNoteManually(noteId, fromTeamId, toTeamTarget) {
     renderResults();
 }
 
-// 8. Painel de Viabilidade Pré-Agrupamento
+// 8. Painel de Viabilidade Pre-Agrupamento
 function pushUndoSnapshot() {
     if (!state.groupedData) return;
     state.undoStack.push(JSON.parse(JSON.stringify(state.groupedData)));
@@ -1534,7 +1507,7 @@ function renderViabilityPanel() {
     const totalAvailable = state.filteredNotes.length;
     const totalOk = totalAvailable >= totalNeeded;
 
-    // Pega a composição ativa da UI
+    // Pega a composicao ativa da UI
     const compInputs = document.querySelectorAll('.comp-input');
     let hasComposition = false;
     let rows = '';
@@ -1553,7 +1526,7 @@ function renderViabilityPanel() {
                 <td><span class="viability-badge">${type}</span></td>
                 <td>${needed}</td>
                 <td>${available}</td>
-                <td class="${ok ? 'viability-ok' : 'viability-warn'}">${ok ? '✅ OK' : `⚠️ −${deficit}`}</td>
+                <td class="${ok ? 'viability-ok' : 'viability-warn'}">${ok ? 'OK OK' : `! -${deficit}`}</td>
             </tr>
         `;
     });
@@ -1566,17 +1539,17 @@ function renderViabilityPanel() {
     panel.style.display = 'block';
     panel.innerHTML = `
         <div class="viability-summary ${totalOk ? 'vs-ok' : 'vs-warn'}">
-            <span>📊 ${numTeams} equipes × ${notesPerTeam} notas = <strong>${totalNeeded} necessárias</strong></span>
-            <span>${totalAvailable} disponíveis ${totalOk ? '✅' : '⚠️'}</span>
+            <span>Resumo: ${numTeams} equipes x ${notesPerTeam} notas = <strong>${totalNeeded} necessarias</strong></span>
+            <span>${totalAvailable} disponiveis ${totalOk ? 'OK' : '!'}</span>
         </div>
         <table class="viability-table">
-            <thead><tr><th>Tipo</th><th>Necessário</th><th>Disponível</th><th>Status</th></tr></thead>
+            <thead><tr><th>Tipo</th><th>Necessario</th><th>Disponivel</th><th>Status</th></tr></thead>
             <tbody>${rows}</tbody>
         </table>
     `;
 }
 
-// 9. Toast de Notificação Temporária
+// 9. Toast de Notificacao Temporaria
 function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
     if (!container) return;
@@ -1586,7 +1559,7 @@ function showToast(message, type = 'info') {
     toast.innerHTML = message;
     container.appendChild(toast);
 
-    // Dois requestAnimationFrame para garantir a transição CSS
+    // Dois requestAnimationFrame para garantir a transicao CSS
     requestAnimationFrame(() => {
         requestAnimationFrame(() => toast.classList.add('toast-visible'));
     });
@@ -1611,7 +1584,7 @@ function renderKPIs() {
     const assignedPct = total > 0 ? Math.round((totalAssigned / total) * 100) : 0;
     const unassignedPct = total > 0 ? Math.round((totalUnassigned / total) * 100) : 0;
 
-    // Calcular distância total de todas as rotas (soma das distâncias consecutivas de cada equipe)
+    // Calcular distancia total de todas as rotas (soma das distancias consecutivas de cada equipe)
     let totalDistanceM = 0;
     state.groupedData.teams.forEach(team => {
         if (team.assignedNotes.length > 1) {
@@ -1634,7 +1607,7 @@ function renderKPIs() {
     document.getElementById('kpiDistance').textContent = `${totalDistanceKm} km`;
 }
 
-// 9. Exportação dos Dados para CSV
+// 9. Exportacao dos Dados para CSV
 function exportResultsCSV() {
     if (!state.groupedData) return;
 
@@ -1651,7 +1624,7 @@ function exportResultsCSV() {
         });
     });
 
-    // Sobras/Notas não atribuídas
+    // Sobras/Notas nao atribuidas
     state.groupedData.unassignedNotes.forEach(note => {
         csvContent += `${state.activeTecnico},Sem Equipe,N/A,${note.nota},${note.tipo},${note.latitude},${note.longitude},N/A\n`;
     });

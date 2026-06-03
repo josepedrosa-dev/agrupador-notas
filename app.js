@@ -33,7 +33,16 @@ const state = {
     originalGroupedData: null, // Cópia profunda original para restauração
     unassignedSearch: '',      // Filtro de texto para notas não atribuídas
     unassignedTypeFilter: '',  // Filtro de tipo para notas não atribuídas
-    mapMarkers: {}             // Mapeamento dinâmico noteId -> Marker do Leaflet
+    mapMarkers: {},            // Mapeamento dinamico noteId -> Marker do Leaflet
+    undoStack: [],
+    routeStartPoint: null,
+    lastImportReport: null
+};
+
+const CONTROL_BASE_POINT = {
+    latitude: -9.58785171587649,
+    longitude: -35.762584817772535,
+    label: 'Base da Control no Tabuleiro'
 };
 
 // Dados do modelo CSV incorporados para o download offline instantâneo
@@ -115,6 +124,7 @@ Tecnico C,3004,ALGC,-23.5248,-46.6160`;
 document.addEventListener('DOMContentLoaded', () => {
     initMap();
     setupEventListeners();
+    setupMapResizer();
 });
 
 // 1. Inicializar o Leaflet Map
@@ -135,6 +145,47 @@ function initMap() {
     state.layers.circles = L.layerGroup().addTo(state.map);
 }
 
+function setupMapResizer() {
+    const resizer = document.getElementById('mapResizer');
+    const workspace = document.querySelector('.workspace-panel');
+    if (!resizer || !workspace) return;
+
+    let dragging = false;
+
+    const applySize = (clientY) => {
+        const rect = workspace.getBoundingClientRect();
+        const toolbarHeight = document.querySelector('.route-toolbar')?.offsetHeight || 0;
+        const kpiHeight = document.getElementById('kpiBar').offsetHeight || 0;
+        const resizerHeight = resizer.offsetHeight || 8;
+        const minMap = 260;
+        const minResults = 180;
+        const rawMapHeight = clientY - rect.top - toolbarHeight;
+        const maxMap = rect.height - toolbarHeight - kpiHeight - resizerHeight - minResults;
+        const mapHeight = Math.max(minMap, Math.min(rawMapHeight, maxMap));
+        const resultsHeight = rect.height - toolbarHeight - mapHeight - kpiHeight - resizerHeight;
+        workspace.style.gridTemplateRows = `auto ${mapHeight}px auto ${resizerHeight}px ${resultsHeight}px`;
+        state.map.invalidateSize();
+    };
+
+    resizer.addEventListener('mousedown', (event) => {
+        dragging = true;
+        event.preventDefault();
+        document.body.style.cursor = 'row-resize';
+    });
+
+    window.addEventListener('mousemove', (event) => {
+        if (!dragging) return;
+        applySize(event.clientY);
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        document.body.style.cursor = '';
+        state.map.invalidateSize();
+    });
+}
+
 // 2. Configuração de Listeners de Eventos
 function setupEventListeners() {
     const uploadArea = document.getElementById('uploadArea');
@@ -148,6 +199,9 @@ function setupEventListeners() {
     const btnGroup = document.getElementById('btnGroup');
     const btnExportCSV = document.getElementById('btnExportCSV');
     const btnDownloadTemplate = document.getElementById('btnDownloadTemplate');
+    const btnSuggestConfig = document.getElementById('btnSuggestConfig');
+    const btnUndoLastMove = document.getElementById('btnUndoLastMove');
+    const btnFixLeftovers = document.getElementById('btnFixLeftovers');
 
     // Fechamento de Modais
     document.getElementById('btnModalClose').addEventListener('click', () => {
@@ -162,6 +216,10 @@ function setupEventListeners() {
     // Download de Template CSV Fictício
     btnDownloadTemplate.addEventListener('click', () => {
         downloadCSV(SAMPLE_CSV, 'modelo_notas_antigravity.csv');
+    });
+
+    btnSuggestConfig.addEventListener('click', () => {
+        suggestIdealConfiguration();
     });
 
     // Upload por clique
@@ -228,6 +286,14 @@ function setupEventListeners() {
         exportResultsCSV();
     });
 
+    btnUndoLastMove.addEventListener('click', () => {
+        undoLastAction();
+    });
+
+    btnFixLeftovers.addEventListener('click', () => {
+        fixLeftovers();
+    });
+
     // Filtro rápido de busca por ID de nota
     document.getElementById('searchUnassigned').addEventListener('input', (e) => {
         state.unassignedSearch = e.target.value.toLowerCase();
@@ -246,6 +312,8 @@ function setupEventListeners() {
             // Faz clone profundo para não arrastar referências
             state.groupedData = JSON.parse(JSON.stringify(state.originalGroupedData));
             state.activeTeamId = state.groupedData.teams.length > 0 ? state.groupedData.teams[0].id : null;
+            state.undoStack = [];
+            updateUndoButton();
             
             // Força a limpeza das pesquisas rápidas para não confundir o usuário
             state.unassignedSearch = '';
@@ -267,26 +335,36 @@ function setupEventListeners() {
 
 // 3. Processamento do arquivo CSV
 function handleUploadedFile(file) {
+    resetImportedData();
+    const extension = file.name.split('.').pop().toLowerCase();
     const reader = new FileReader();
     reader.onload = (e) => {
-        const text = e.target.result;
-        parseCSVData(text);
+        let result;
+        if (extension === 'xlsx') {
+            result = parseXLSXData(e.target.result);
+        } else if (extension === 'csv') {
+            result = parseCSVData(e.target.result);
+        } else {
+            result = {
+                ok: false,
+                notes: [],
+                errors: ['Formato nao suportado. Use .csv ou .xlsx.'],
+                ignoredRows: 0,
+                totalRows: 0
+            };
+        }
+        applyImportResult(file.name, result);
         
-        // Atualiza a visualização do arquivo carregado
-        document.getElementById('fileName').textContent = file.name;
-        document.getElementById('fileInfo').style.display = 'flex';
-        
-        // Ativa o seletor de técnicos
-        const selectTecnico = document.getElementById('selectTecnico');
-        selectTecnico.disabled = false;
-        
-        // Popula técnicos
-        populateTecnicoDropdown();
     };
-    reader.readAsText(file);
+    if (extension === 'xlsx') {
+        reader.readAsArrayBuffer(file);
+    } else {
+        reader.readAsText(file, 'UTF-8');
+    }
 }
 
 function parseCSVData(text) {
+    return validateTabularRows(parseCSVRows(text));
     const lines = text.split(/\r?\n/);
     const headers = lines[0].toLowerCase().split(',');
     
@@ -316,9 +394,223 @@ function parseCSVData(text) {
     }
 }
 
+function resetImportedData() {
+    state.allNotes = [];
+    state.filteredNotes = [];
+    state.activeTecnico = '';
+    state.groupedData = null;
+    state.originalGroupedData = null;
+    state.undoStack = [];
+    state.mapMarkers = {};
+    updateUndoButton();
+
+    ['notes', 'centroids', 'routes', 'circles'].forEach(layer => {
+        if (state.layers[layer]) state.layers[layer].clearLayers();
+    });
+
+    document.getElementById('selectTecnico').innerHTML = '<option value="">Aguardando carregamento de dados...</option>';
+    document.getElementById('selectTecnico').disabled = true;
+    document.getElementById('btnGroup').disabled = true;
+    document.getElementById('btnSuggestConfig').disabled = true;
+    document.getElementById('btnExportCSV').disabled = true;
+    document.getElementById('btnResetAdjustments').disabled = true;
+    document.getElementById('btnFixLeftovers').disabled = true;
+    document.getElementById('fileInfo').style.display = 'none';
+    document.getElementById('kpiBar').style.display = 'none';
+
+    const report = document.getElementById('importReport');
+    if (report) {
+        report.style.display = 'none';
+        report.innerHTML = '';
+    }
+}
+
+function applyImportResult(fileName, result) {
+    state.lastImportReport = result;
+    renderImportReport(result);
+
+    if (!result.ok) {
+        showToast('Arquivo nao importado. Corrija os erros exibidos no painel.', 'danger');
+        return;
+    }
+
+    state.allNotes = result.notes;
+    document.getElementById('fileName').textContent = fileName;
+    document.getElementById('fileInfo').style.display = 'flex';
+
+    const selectTecnico = document.getElementById('selectTecnico');
+    selectTecnico.disabled = false;
+    populateTecnicoDropdown();
+    selectTecnico.value = '__ALL__';
+    state.activeTecnico = '__ALL__';
+    filterNotesByTecnico();
+    buildCompositionTable();
+
+    document.getElementById('btnSuggestConfig').disabled = false;
+    showToast(`${result.notes.length} notas validas importadas.`, result.errors.length ? 'warning' : 'info');
+}
+
+function renderImportReport(result) {
+    const report = document.getElementById('importReport');
+    if (!report) return;
+
+    const statusClass = result.ok ? (result.errors.length ? 'import-warning' : 'import-ok') : 'import-danger';
+    const shownErrors = result.errors.slice(0, 6);
+    report.style.display = 'block';
+    report.className = `import-report ${statusClass}`;
+    report.innerHTML = `
+        <div><strong>${result.ok ? 'Importacao validada' : 'Importacao bloqueada'}</strong></div>
+        <div>${result.notes.length} validas de ${result.totalRows} linhas de dados. ${result.ignoredRows} ignoradas.</div>
+        ${shownErrors.length ? `<ul>${shownErrors.map(error => `<li>${escapeHTML(error)}</li>`).join('')}</ul>` : ''}
+        ${result.errors.length > shownErrors.length ? `<div>+ ${result.errors.length - shownErrors.length} outros erros.</div>` : ''}
+    `;
+}
+
+function parseXLSXData(arrayBuffer) {
+    if (typeof XLSX === 'undefined') {
+        return {
+            ok: false,
+            notes: [],
+            errors: ['Leitor XLSX nao foi carregado. Verifique a conexao com a internet e recarregue a pagina.'],
+            ignoredRows: 0,
+            totalRows: 0
+        };
+    }
+
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+    return validateTabularRows(rows);
+}
+
+function parseCSVRows(text) {
+    const rows = [];
+    let row = [];
+    let value = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const next = text[i + 1];
+
+        if (char === '"') {
+            if (inQuotes && next === '"') {
+                value += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            row.push(value);
+            value = '';
+        } else if ((char === '\n' || char === '\r') && !inQuotes) {
+            if (char === '\r' && next === '\n') i++;
+            row.push(value);
+            rows.push(row);
+            row = [];
+            value = '';
+        } else {
+            value += char;
+        }
+    }
+
+    if (value || row.length) {
+        row.push(value);
+        rows.push(row);
+    }
+
+    return rows;
+}
+
+function validateTabularRows(rows) {
+    const errors = [];
+    const notes = [];
+    let ignoredRows = 0;
+    const nonEmptyRows = rows.filter(row => row.some(cell => String(cell ?? '').trim() !== ''));
+
+    if (nonEmptyRows.length === 0) {
+        return { ok: false, notes, errors: ['Arquivo vazio.'], ignoredRows: 0, totalRows: 0 };
+    }
+
+    const headers = nonEmptyRows[0].map(header => normalizeHeader(header));
+    const indexes = {
+        tecnico: headers.indexOf('tecnico'),
+        nota: headers.indexOf('nota'),
+        tipo: headers.indexOf('tipo'),
+        latitude: headers.indexOf('latitude'),
+        longitude: headers.indexOf('longitude')
+    };
+
+    Object.entries(indexes).forEach(([name, idx]) => {
+        if (idx === -1) errors.push(`Coluna obrigatoria ausente: ${name}.`);
+    });
+
+    if (errors.length) {
+        return { ok: false, notes, errors, ignoredRows: Math.max(0, nonEmptyRows.length - 1), totalRows: Math.max(0, nonEmptyRows.length - 1) };
+    }
+
+    const seenNotes = new Set();
+    for (let i = 1; i < nonEmptyRows.length; i++) {
+        const row = nonEmptyRows[i];
+        const rowNumber = i + 1;
+        const nota = String(row[indexes.nota] ?? '').trim();
+        const tipo = String(row[indexes.tipo] ?? '').trim().toUpperCase();
+        const tecnico = String(row[indexes.tecnico] ?? '').trim() || '(Sem Tecnico)';
+        const latitude = parseCoordinate(row[indexes.latitude]);
+        const longitude = parseCoordinate(row[indexes.longitude]);
+        const rowErrors = [];
+
+        if (!nota) rowErrors.push('nota vazia');
+        if (!tipo) rowErrors.push('tipo vazio');
+        if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) rowErrors.push('latitude invalida');
+        if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) rowErrors.push('longitude invalida');
+        if (nota && seenNotes.has(nota)) rowErrors.push(`nota duplicada (${nota})`);
+
+        if (rowErrors.length) {
+            ignoredRows++;
+            errors.push(`Linha ${rowNumber}: ${rowErrors.join(', ')}.`);
+            continue;
+        }
+
+        seenNotes.add(nota);
+        notes.push({ tecnico, nota, tipo, latitude, longitude });
+    }
+
+    return {
+        ok: notes.length > 0,
+        notes,
+        errors: notes.length > 0 ? errors : ['Nenhuma linha valida encontrada.', ...errors],
+        ignoredRows,
+        totalRows: Math.max(0, nonEmptyRows.length - 1)
+    };
+}
+
+function normalizeHeader(value) {
+    return String(value ?? '')
+        .replace(/^\uFEFF/, '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+function parseCoordinate(value) {
+    if (typeof value === 'number') return value;
+    return parseFloat(String(value ?? '').trim().replace(',', '.'));
+}
+
+function escapeHTML(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function populateTecnicoDropdown() {
     const select = document.getElementById('selectTecnico');
-    select.innerHTML = '<option value="">-- Selecione um Técnico --</option>';
+    select.innerHTML = '<option value="__ALL__">Todos os tecnicos e notas sem tecnico</option>';
 
     // Acha técnicos únicos
     const tecnicos = [...new Set(state.allNotes.map(n => n.tecnico))].filter(Boolean);
@@ -343,7 +635,9 @@ function populateTecnicoDropdown() {
 }
 
 function filterNotesByTecnico() {
-    state.filteredNotes = state.allNotes.filter(n => n.tecnico === state.activeTecnico);
+    state.filteredNotes = state.activeTecnico === '__ALL__'
+        ? [...state.allNotes]
+        : state.allNotes.filter(n => n.tecnico === state.activeTecnico);
     
     // Zoom no mapa cobrindo a região geográfica deste técnico
     if (state.filteredNotes.length > 0) {
@@ -493,8 +787,37 @@ function validateCompositionProgress() {
 }
 
 // 5. Executar Algoritmo de Agrupamento
+function getRouteStartPointFromUser() {
+    const useControlBase = window.confirm('O ponto de partida das equipes é na Base da Control no Tabuleiro?');
+    if (useControlBase) {
+        return { ...CONTROL_BASE_POINT };
+    }
+
+    const latInput = window.prompt('Informe a latitude do ponto de partida:', String(CONTROL_BASE_POINT.latitude));
+    if (latInput === null) return null;
+    const lngInput = window.prompt('Informe a longitude do ponto de partida:', String(CONTROL_BASE_POINT.longitude));
+    if (lngInput === null) return null;
+
+    const latitude = parseCoordinate(latInput);
+    const longitude = parseCoordinate(lngInput);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        showToast('Coordenadas do ponto de partida invalidas.', 'danger');
+        return null;
+    }
+
+    return { latitude, longitude, label: `Ponto informado (${latitude.toFixed(6)}, ${longitude.toFixed(6)})` };
+}
+
+function getSelectedScopeLabel() {
+    if (state.activeTecnico === '__ALL__') return 'todos os tecnicos e notas sem tecnico';
+    return state.activeTecnico || 'sem selecao';
+}
+
 function runGrouping() {
     if (state.filteredNotes.length === 0) return;
+    const startPoint = getRouteStartPointFromUser();
+    if (!startPoint) return;
+    state.routeStartPoint = startPoint;
 
     const numTeams = parseInt(document.getElementById('inputNumTeams').value);
     const radius = parseInt(document.getElementById('inputRadius').value);
@@ -511,9 +834,15 @@ function runGrouping() {
     });
 
     // Roda o motor algorítmico do algorithm.js
-    const result = NoteGrouper.groupNotes(state.filteredNotes, numTeams, notesPerTeam, composition, radius);
+    const result = NoteGrouper.groupNotes(state.filteredNotes, numTeams, notesPerTeam, composition, radius, startPoint);
+    result.warnings.unshift({
+        type: 'info',
+        message: `Roteirizacao em massa usando ${state.filteredNotes.length} notas (${getSelectedScopeLabel()}). Ponto de partida: ${startPoint.label}.`
+    });
     state.groupedData = result;
     state.activeTeamId = result.teams.length > 0 ? result.teams[0].id : null;
+    state.undoStack = [];
+    updateUndoButton();
 
     // Salva uma cópia profunda (deep copy) original antes de sofrer qualquer edição manual do usuário
     state.originalGroupedData = JSON.parse(JSON.stringify(result));
@@ -562,6 +891,8 @@ function renderResults() {
     // Habilita os botões de controle
     document.getElementById('btnExportCSV').disabled = false;
     document.getElementById('btnResetAdjustments').disabled = false;
+    document.getElementById('btnFixLeftovers').disabled = state.groupedData.unassignedNotes.length === 0;
+    updateUndoButton();
 
     // Reseta mapeamento de marcadores ativos
     state.mapMarkers = {};
@@ -971,6 +1302,7 @@ function moveNoteManually(noteId, fromTeamId, toTeamTarget) {
         }
     }
 
+    pushUndoSnapshot();
     let movedNote = null;
 
     // 1. Remover a nota da origem (pode ser uma equipe ou a lista de órfãs)
@@ -1016,7 +1348,7 @@ function moveNoteManually(noteId, fromTeamId, toTeamTarget) {
     state.groupedData.teams.forEach(team => {
         if (team.assignedNotes.length > 0) {
             team.centroid = GeocodingUtils.getCentroid(team.assignedNotes);
-            team.assignedNotes = GeocodingUtils.solveTSP(team.assignedNotes, team.centroid);
+            team.assignedNotes = GeocodingUtils.solveTSP(team.assignedNotes, state.routeStartPoint || team.centroid);
             team.radius = GeocodingUtils.calculateMaxRadius(team.assignedNotes, team.centroid);
         } else {
             team.radius = 0;
@@ -1029,6 +1361,171 @@ function moveNoteManually(noteId, fromTeamId, toTeamTarget) {
 }
 
 // 8. Painel de Viabilidade Pré-Agrupamento
+function pushUndoSnapshot() {
+    if (!state.groupedData) return;
+    state.undoStack.push(JSON.parse(JSON.stringify(state.groupedData)));
+    if (state.undoStack.length > 20) state.undoStack.shift();
+    updateUndoButton();
+}
+
+function undoLastAction() {
+    if (state.undoStack.length === 0) return;
+    state.groupedData = state.undoStack.pop();
+    state.activeTeamId = state.groupedData.teams.length > 0 ? state.groupedData.teams[0].id : null;
+    updateUndoButton();
+    renderResults();
+    showToast('Ultima acao desfeita.', 'info');
+}
+
+function updateUndoButton() {
+    const btn = document.getElementById('btnUndoLastMove');
+    if (btn) btn.disabled = state.undoStack.length === 0;
+}
+
+function suggestIdealConfiguration() {
+    if (!state.filteredNotes || state.filteredNotes.length === 0) return;
+    const notesPerTeam = Math.min(8, Math.max(4, parseInt(document.getElementById('inputNotesPerTeam').value) || 6));
+    const suggestedTeams = Math.max(1, Math.ceil(state.filteredNotes.length / notesPerTeam));
+    const teamSlider = document.getElementById('inputNumTeams');
+    const notesSlider = document.getElementById('inputNotesPerTeam');
+
+    notesSlider.value = notesPerTeam;
+    document.getElementById('valNotesPerTeam').textContent = String(notesPerTeam);
+    teamSlider.value = Math.min(parseInt(teamSlider.max), suggestedTeams);
+    document.getElementById('valNumTeams').textContent = teamSlider.value;
+
+    const counts = {};
+    state.filteredNotes.forEach(note => {
+        counts[note.tipo] = (counts[note.tipo] || 0) + 1;
+    });
+    const sortedTypes = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    const total = state.filteredNotes.length;
+    let remaining = notesPerTeam;
+    const composition = {};
+
+    sortedTypes.forEach((type, index) => {
+        if (remaining <= 0) {
+            composition[type] = 0;
+            return;
+        }
+        const proportional = index === sortedTypes.length - 1
+            ? remaining
+            : Math.max(0, Math.round((counts[type] / total) * notesPerTeam));
+        const value = Math.min(remaining, proportional);
+        composition[type] = value;
+        remaining -= value;
+    });
+
+    if (remaining > 0 && sortedTypes[0]) {
+        composition[sortedTypes[0]] = (composition[sortedTypes[0]] || 0) + remaining;
+    }
+
+    document.querySelectorAll('.comp-input').forEach(input => {
+        const type = input.getAttribute('data-type');
+        input.value = composition[type] || 0;
+    });
+    validateCompositionProgress();
+    showToast('Configuracao sugerida aplicada para roteirizacao em massa.', 'info');
+}
+
+function fixLeftovers() {
+    if (!state.groupedData || state.groupedData.unassignedNotes.length === 0) {
+        showToast('Nao ha sobras para corrigir.', 'info');
+        return;
+    }
+
+    pushUndoSnapshot();
+    const capacity = parseInt(document.getElementById('inputNotesPerTeam').value);
+    const maxRadius = parseInt(document.getElementById('inputRadius').value);
+    const safetyRadius = maxRadius * 1.5;
+    let movedCount = 0;
+    let blockedByRadius = 0;
+    const remaining = [];
+
+    state.groupedData.unassignedNotes.forEach(note => {
+        let bestTeam = null;
+        let bestCentroidDistance = Infinity;
+        let bestRouteIncrease = Infinity;
+
+        state.groupedData.teams.forEach(team => {
+            if (team.assignedNotes.length >= capacity) return;
+            if (!team.centroid && team.assignedNotes.length > 0) {
+                team.centroid = GeocodingUtils.getCentroid(team.assignedNotes);
+            }
+
+            const referencePoint = team.centroid || state.routeStartPoint || note;
+            const centroidDistance = GeocodingUtils.haversineDistance(
+                referencePoint.latitude, referencePoint.longitude,
+                note.latitude, note.longitude
+            );
+
+            if (centroidDistance > safetyRadius) return;
+
+            const candidateNotes = [...team.assignedNotes, note];
+            const centroid = GeocodingUtils.getCentroid(candidateNotes);
+            const route = GeocodingUtils.solveTSP(candidateNotes, state.routeStartPoint || centroid);
+            const increase = calculateRouteDistance(route) - calculateRouteDistance(team.assignedNotes);
+
+            const isCloserToCentroid = centroidDistance < bestCentroidDistance;
+            const isRouteTiebreaker = Math.abs(centroidDistance - bestCentroidDistance) < 1 && increase < bestRouteIncrease;
+
+            if (isCloserToCentroid || isRouteTiebreaker) {
+                bestCentroidDistance = centroidDistance;
+                bestRouteIncrease = increase;
+                bestTeam = team;
+            }
+        });
+
+        if (bestTeam) {
+            bestTeam.assignedNotes.push(note);
+            movedCount++;
+        } else {
+            blockedByRadius++;
+            remaining.push(note);
+        }
+    });
+
+    state.groupedData.unassignedNotes = remaining;
+    recalculateAllTeams();
+    state.groupedData.warnings.push({
+        type: movedCount > 0 ? 'info' : 'warning',
+        message: movedCount > 0
+            ? `${movedCount} nota(s) sem equipe foram encaixadas pela equipe com centroide mais proximo, respeitando o limite de seguranca de ${Math.round(safetyRadius)}m (1.5x o raio).`
+            : `Nao foi possivel encaixar sobras sem ultrapassar capacidade ou limite de seguranca de ${Math.round(safetyRadius)}m.`
+    });
+    if (blockedByRadius > 0 && movedCount > 0) {
+        state.groupedData.warnings.push({
+            type: 'warning',
+            message: `${blockedByRadius} nota(s) permaneceram sem equipe por capacidade cheia ou por ficarem acima de ${Math.round(safetyRadius)}m do centroide elegivel.`
+        });
+    }
+    renderResults();
+}
+
+function recalculateAllTeams() {
+    state.groupedData.teams.forEach(team => {
+        if (team.assignedNotes.length > 0) {
+            team.centroid = GeocodingUtils.getCentroid(team.assignedNotes);
+            team.assignedNotes = GeocodingUtils.solveTSP(team.assignedNotes, state.routeStartPoint || team.centroid);
+            team.radius = GeocodingUtils.calculateMaxRadius(team.assignedNotes, team.centroid);
+        } else {
+            team.centroid = null;
+            team.radius = 0;
+        }
+    });
+}
+
+function calculateRouteDistance(notes) {
+    let total = 0;
+    for (let i = 0; i < notes.length - 1; i++) {
+        total += GeocodingUtils.haversineDistance(
+            notes[i].latitude, notes[i].longitude,
+            notes[i + 1].latitude, notes[i + 1].longitude
+        );
+    }
+    return total;
+}
+
 function renderViabilityPanel() {
     const panel = document.getElementById('viabilityPanel');
     if (!panel) return;

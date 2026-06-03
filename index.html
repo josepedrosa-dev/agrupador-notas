@@ -41,13 +41,13 @@
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
                     </svg>
-                    1. Base de Notas (CSV)
+                    1. Base de Notas (CSV ou XLSX)
                 </div>
                 <div class="upload-area" id="uploadArea">
                     <div class="upload-icon">⚡</div>
-                    <p>Arraste e solte o CSV de ordens aqui</p>
-                    <span>ou clique para procurar no seu computador</span>
-                    <input type="file" id="fileInput" accept=".csv" style="display: none;">
+                    <p>Arraste e solte CSV ou XLSX de ordens aqui</p>
+                    <span>aceita .csv e .xlsx com tecnico, nota, tipo, latitude e longitude</span>
+                    <input type="file" id="fileInput" accept=".csv,.xlsx" style="display: none;">
                 </div>
                 <div class="file-info" id="fileInfo">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 1rem; height: 1rem;">
@@ -55,6 +55,7 @@
                     </svg>
                     <span id="fileName">modelo.csv carregado</span>
                 </div>
+                <div id="importReport" class="import-report" style="display: none;"></div>
             </div>
 
             <!-- Parameters Card -->
@@ -78,7 +79,7 @@
                         <label for="inputNumTeams">Quantidade de Equipes</label>
                         <span class="range-value" id="valNumTeams">10</span>
                     </div>
-                    <input type="range" id="inputNumTeams" min="1" max="30" value="10">
+                    <input type="range" id="inputNumTeams" min="1" max="60" value="10">
                 </div>
 
                 <div class="form-group">
@@ -121,6 +122,10 @@
                 <div id="viabilityPanel" style="display: none; margin-top: 0.75rem;"></div>
             </div>
 
+            <button class="btn btn-secondary" id="btnSuggestConfig" disabled>
+                Sugerir Configuracao Ideal
+            </button>
+
             <button class="btn" id="btnGroup" disabled>
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
@@ -131,6 +136,15 @@
 
         <!-- Área de Trabalho (Direita) -->
         <section class="workspace-panel">
+            <div class="route-toolbar">
+                <h4 id="activeTeamTitle">Detalhes da Equipe Selecionada</h4>
+                <div class="route-actions">
+                    <button class="btn btn-secondary" id="btnResetAdjustments" disabled>Restaurar Inicial</button>
+                    <button class="btn btn-secondary" id="btnUndoLastMove" disabled>Desfazer</button>
+                    <button class="btn btn-secondary" id="btnFixLeftovers" disabled>Corrigir Sobras</button>
+                    <button class="btn btn-secondary" id="btnExportCSV" disabled>Exportar CSV</button>
+                </div>
+            </div>
             <!-- Leaflet Map -->
             <div class="map-container">
                 <div id="map"></div>
@@ -155,6 +169,8 @@
                     <span class="kpi-value" id="kpiDistance" style="color: var(--primary);">0.0 km</span>
                 </div>
             </div>
+
+            <div class="map-resizer" id="mapResizer" title="Arraste para aumentar ou diminuir o mapa"></div>
 
             <!-- Painel de Resultados (Inferior) -->
             <div class="results-panel">
@@ -190,13 +206,19 @@
                     </div>
 
                     <!-- Tabela de Notas Otimizadas da Equipe Ativa -->
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h4 id="activeTeamTitle" style="font-family: var(--font-heading); font-size: 1rem; color: var(--text-primary);">Detalhes da Equipe Selecionada</h4>
+                    <div style="display: none;">
+                        <h4 id="activeTeamTitleLegacy" style="font-family: var(--font-heading); font-size: 1rem; color: var(--text-primary);">Detalhes da Equipe Selecionada</h4>
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <button class="btn btn-secondary" id="btnResetAdjustments" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem; border-color: rgba(249, 115, 22, 0.25); color: #ffedd5;">
+                            <button class="btn btn-secondary" id="btnResetAdjustmentsLegacy" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem; border-color: rgba(249, 115, 22, 0.25); color: #ffedd5;">
                                 🔄 Restaurar Inicial
                             </button>
-                            <button class="btn btn-secondary" id="btnExportCSV" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem;">
+                            <button class="btn btn-secondary" id="btnUndoLastMoveLegacy" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem;">
+                                Desfazer
+                            </button>
+                            <button class="btn btn-secondary" id="btnFixLeftoversLegacy" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem; color: #bbf7d0;">
+                                Corrigir Sobras
+                            </button>
+                            <button class="btn btn-secondary" id="btnExportCSVLegacy" disabled style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem;">
                                 Exportar Roteamento (.CSV)
                             </button>
                         </div>
@@ -251,6 +273,7 @@
 
     <!-- Leaflet.js -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <!-- Business and Map Logic scripts -->
     <script src="algorithm.js"></script>
     <script src="app.js"></script>

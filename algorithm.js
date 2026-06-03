@@ -108,7 +108,7 @@ class NoteGrouper {
      * @param {Object} composition - Objeto com a cota ideal (ex: { MDFC: 4, ALGC: 2 }).
      * @param {number} maxRadius - Raio limite configurado em metros.
      */
-    static groupNotes(notes, numTeams, notesPerTeam, composition, maxRadius) {
+    static groupNotes(notes, numTeams, notesPerTeam, composition, maxRadius, startPoint = null) {
         // Clonar as notas para não alterar a base original
         let availableNotes = notes.map(n => ({ ...n, latitude: parseFloat(n.latitude), longitude: parseFloat(n.longitude) }));
         
@@ -165,7 +165,7 @@ class NoteGrouper {
                 // Centróide final real das notas atribuídas
                 team.centroid = GeocodingUtils.getCentroid(team.assignedNotes);
                 // Resolver Rota sugerida de execução
-                team.assignedNotes = GeocodingUtils.solveTSP(team.assignedNotes, team.centroid);
+                team.assignedNotes = GeocodingUtils.solveTSP(team.assignedNotes, startPoint || team.centroid);
                 // Calcular raio geográfico final real
                 team.radius = GeocodingUtils.calculateMaxRadius(team.assignedNotes, team.centroid);
             }

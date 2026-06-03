@@ -12,24 +12,6 @@ const state = {
         routes: null,     // Polilinhas de rotas TSP
         circles: null     // Círculos do raio de atuação
     },
-    // Cores Neon vibrantes para as equipes
-    teamColors: [
-        '#06b6d4', // Cyan
-        '#10b981', // Emerald
-        '#a855f7', // Roxo
-        '#f97316', // Laranja
-        '#ec4899', // Rosa
-        '#3b82f6', // Azul
-        '#eab308', // Amarelo
-        '#ef4444', // Vermelho
-        '#14b8a6', // Teal
-        '#6366f1', // Indigo
-        '#84cc16', // Lime
-        '#d946ef', // Fuchsia
-        '#f43f5e', // Rose
-        '#0284c7', // Sky Blue
-        '#22c55e'  // Green
-    ],
     originalGroupedData: null, // Cópia profunda original para restauração
     unassignedSearch: '',      // Filtro de texto para notas não atribuídas
     unassignedTypeFilter: '',  // Filtro de tipo para notas não atribuídas
@@ -44,6 +26,17 @@ const CONTROL_BASE_POINT = {
     longitude: -35.762584817772535,
     label: 'Base da Control no Tabuleiro'
 };
+
+function getTeamColor(teamId) {
+    const safeId = Math.max(1, Number(teamId) || 1);
+    const hue = Math.round(((safeId - 1) * 137.508) % 360);
+    const saturationSteps = [84, 72, 90];
+    const lightnessSteps = [48, 58, 42, 64];
+    const saturation = saturationSteps[(safeId - 1) % saturationSteps.length];
+    const lightness = lightnessSteps[(safeId - 1) % lightnessSteps.length];
+
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
 
 // Dados do modelo CSV incorporados para o download offline instantâneo
 const SAMPLE_CSV = `tecnico,nota,tipo,latitude,longitude
@@ -927,7 +920,7 @@ function renderTeamList() {
     container.innerHTML = '';
 
     state.groupedData.teams.forEach(team => {
-        const color = state.teamColors[(team.id - 1) % state.teamColors.length];
+        const color = getTeamColor(team.id);
         
         const item = document.createElement('div');
         item.className = `team-item ${state.activeTeamId === team.id ? 'active' : ''}`;
@@ -1127,7 +1120,7 @@ function renderMapElements() {
     state.groupedData.teams.forEach(team => {
         if (team.assignedNotes.length === 0) return;
 
-        const color = state.teamColors[(team.id - 1) % state.teamColors.length];
+        const color = getTeamColor(team.id);
 
         // Desenhar Círculo do Raio de Ação da Equipe (a partir do centróide geográfico calculado)
         L.circle([team.centroid.latitude, team.centroid.longitude], {

@@ -18,7 +18,8 @@ const state = {
     mapMarkers: {},            // Mapeamento dinamico noteId -> Marker do Leaflet
     undoStack: [],
     routeStartPoint: null,
-    lastImportReport: null
+    lastImportReport: null,
+    priorityOrder: ['prioridade', 'prazo', 'tipo', 'distancia']
 };
 
 const CONTROL_BASE_POINT = {
@@ -39,78 +40,29 @@ function getTeamColor(teamId) {
 }
 
 // Dados do modelo CSV incorporados para o download offline instantaneo
-const SAMPLE_CSV = `tecnico,nota,tipo,latitude,longitude
-Tecnico A,1001,MDFC,-23.5489,-46.6388
-Tecnico A,1002,MDFC,-23.5492,-46.6372
-Tecnico A,1003,MDFC,-23.5475,-46.6355
-Tecnico A,1004,MDFC,-23.5460,-46.6340
-Tecnico A,1005,ALGC,-23.5510,-46.6310
-Tecnico A,1006,ALGC,-23.5525,-46.6322
-Tecnico A,1007,MDFC,-23.5502,-46.6366
-Tecnico A,1008,MDFC,-23.5534,-46.6348
-Tecnico A,1009,MDFC,-23.5448,-46.6320
-Tecnico A,1010,MDFC,-23.5435,-46.6311
-Tecnico A,1011,ALGC,-23.5452,-46.6360
-Tecnico A,1012,ALGC,-23.5465,-46.6375
-Tecnico A,1013,APRO,-23.5478,-46.6390
-Tecnico A,1014,MDFC,-23.5508,-46.6288
-Tecnico A,1015,MDFC,-23.5520,-46.6275
-Tecnico A,1016,ALGC,-23.5532,-46.6295
-Tecnico A,1017,ALGC,-23.5545,-46.6308
-Tecnico A,1018,MDFC,-23.5558,-46.6330
-Tecnico A,1019,MDFC,-23.5562,-46.6345
-Tecnico A,1020,MDFC,-23.5570,-46.6360
-Tecnico A,1021,ALDS,-23.5585,-46.6378
-Tecnico A,1022,ALDS,-23.5592,-46.6395
-Tecnico A,1023,MDFC,-23.5410,-46.6410
-Tecnico A,1024,MDFC,-23.5422,-46.6425
-Tecnico A,1025,ALGC,-23.5435,-46.6438
-Tecnico A,1026,ALGC,-23.5448,-46.6450
-Tecnico A,1027,MDFC,-23.5401,-46.6280
-Tecnico A,1028,MDFC,-23.5392,-46.6292
-Tecnico A,1029,ALGC,-23.5385,-46.6305
-Tecnico A,1030,ALGC,-23.5378,-46.6318
-Tecnico A,1031,MDFC,-23.5405,-46.6345
-Tecnico A,1032,MDFC,-23.5395,-46.6360
-Tecnico A,1033,MDFC,-23.5380,-46.6372
-Tecnico A,1034,ALGC,-23.5365,-46.6385
-Tecnico A,1035,ALGC,-23.5350,-46.6398
-Tecnico A,1036,MDFC,-23.5498,-46.6452
-Tecnico A,1037,MDFC,-23.5512,-46.6440
-Tecnico A,1038,ALGC,-23.5528,-46.6430
-Tecnico A,1039,ALGC,-23.5542,-46.6418
-Tecnico A,1040,MDFC,-23.5560,-46.6465
-Tecnico A,1041,MDFC,-23.5575,-46.6452
-Tecnico A,1042,ALGC,-23.5588,-46.6438
-Tecnico A,1043,ALGC,-23.5598,-46.6425
-Tecnico A,1044,MDFC,-23.5610,-46.6402
-Tecnico A,1045,MDFC,-23.5625,-46.6390
-Tecnico A,1046,ALGC,-23.5638,-46.6375
-Tecnico A,1047,ALGC,-23.5648,-46.6360
-Tecnico A,1048,MDFC,-23.5480,-46.6210
-Tecnico A,1049,MDFC,-23.5495,-46.6225
-Tecnico A,1050,ALGC,-23.5510,-46.6238
-Tecnico A,1051,ALGC,-23.5522,-46.6250
-Tecnico A,1052,MDFC,-23.5458,-46.6202
-Tecnico A,1053,MDFC,-23.5442,-46.6215
-Tecnico A,1054,ALGC,-23.5430,-46.6230
-Tecnico A,1055,ALGC,-23.5418,-46.6242
-Tecnico A,1056,MDFC,-23.5605,-46.6315
-Tecnico A,1057,MDFC,-23.5620,-46.6302
-Tecnico A,1058,ALGC,-23.5632,-46.6288
-Tecnico A,1059,ALGC,-23.5645,-46.6275
-Tecnico A,1060,APRO,-23.5658,-46.6260
-Tecnico B,2001,MDFC,-23.5805,-46.6520
-Tecnico B,2002,MDFC,-23.5820,-46.6535
-Tecnico B,2003,ALGC,-23.5835,-46.6548
-Tecnico B,2004,ALGC,-23.5848,-46.6560
-Tecnico B,2005,MDFC,-23.5788,-46.6502
-Tecnico B,2006,MDFC,-23.5772,-46.6515
-Tecnico B,2007,ALGC,-23.5760,-46.6530
-Tecnico B,2008,ALGC,-23.5748,-46.6542
-Tecnico C,3001,MDFC,-23.5205,-46.6120
-Tecnico C,3002,MDFC,-23.5220,-46.6135
-Tecnico C,3003,ALGC,-23.5235,-46.6148
+const SAMPLE_CSV = `tecnico,nota,tipo,latitude,longitude,prazo,prioridade
+Tecnico A,1001,MDFC,-23.5489,-46.6388,15/06/2026,1
+Tecnico A,1002,MDFC,-23.5492,-46.6372,,
+Tecnico A,1003,MDFC,-23.5475,-46.6355,10/06/2026,
+Tecnico A,1004,MDFC,-23.5460,-46.6340,,1
+Tecnico A,1005,ALGC,-23.5510,-46.6310,12/06/2026,
+Tecnico A,1006,ALGC,-23.5525,-46.6322,,
+Tecnico A,1007,MDFC,-23.5502,-46.6366,,
+Tecnico A,1008,MDFC,-23.5534,-46.6348,,
+Tecnico A,1009,MDFC,-23.5448,-46.6320,18/06/2026,1
+Tecnico A,1010,MDFC,-23.5435,-46.6311,,
+Tecnico A,1011,ALGC,-23.5452,-46.6360,,
+Tecnico A,1012,ALGC,-23.5465,-46.6375,,
+Tecnico A,1013,APRO,-23.5478,-46.6390,,
+Tecnico A,1014,MDFC,-23.5508,-46.6288,,
+Tecnico A,1015,MDFC,-23.5520,-46.6275,,
+Tecnico B,2001,MDFC,-23.5805,-46.6520,15/06/2026,
+Tecnico B,2002,MDFC,-23.5820,-46.6535,,
+Tecnico B,2003,ALGC,-23.5835,-46.6548,,
+Tecnico B,2004,ALGC,-23.5848,-46.6560,,
+Tecnico C,3001,MDFC,-23.5205,-46.6120,,
+Tecnico C,3002,MDFC,-23.5220,-46.6135,,
+Tecnico C,3003,ALGC,-23.5235,-46.6148,,
 Tecnico C,3004,ALGC,-23.5248,-46.6160`;
 
 // Inicializacao dos elementos do DOM
@@ -118,7 +70,50 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     setupEventListeners();
     setupMapResizer();
+    setupPrioritySelectorListeners();
 });
+
+function setupPrioritySelectorListeners() {
+    const selector = document.getElementById('prioritySelector');
+    if (!selector) return;
+
+    const updateSelectorState = () => {
+        const items = [...selector.querySelectorAll('.priority-item')];
+        items.forEach((item, index) => {
+            const btnUp = item.querySelector('.btn-up');
+            const btnDown = item.querySelector('.btn-down');
+            if (btnUp) btnUp.disabled = (index === 0);
+            if (btnDown) btnDown.disabled = (index === items.length - 1);
+        });
+
+        // Atualiza o estado global
+        state.priorityOrder = items.map(item => item.getAttribute('data-id'));
+    };
+
+    selector.addEventListener('click', (e) => {
+        const btn = e.target.closest('.priority-btn');
+        if (!btn) return;
+
+        const item = btn.closest('.priority-item');
+        if (!item) return;
+
+        if (btn.classList.contains('btn-up')) {
+            const prev = item.previousElementSibling;
+            if (prev) {
+                selector.insertBefore(item, prev);
+                updateSelectorState();
+            }
+        } else if (btn.classList.contains('btn-down')) {
+            const next = item.nextElementSibling;
+            if (next) {
+                selector.insertBefore(next, item);
+                updateSelectorState();
+            }
+        }
+    });
+
+    updateSelectorState();
+}
 
 // 1. Inicializar o Leaflet Map
 function initMap() {
@@ -504,11 +499,14 @@ function validateTabularRows(rows) {
         nota: headers.indexOf('nota'),
         tipo: headers.indexOf('tipo'),
         latitude: headers.indexOf('latitude'),
-        longitude: headers.indexOf('longitude')
+        longitude: headers.indexOf('longitude'),
+        prazo: headers.indexOf('prazo'),
+        prioridade: headers.indexOf('prioridade')
     };
 
-    Object.entries(indexes).forEach(([name, idx]) => {
-        if (idx === -1) errors.push(`Coluna obrigatoria ausente: ${name}.`);
+    const required = ['tecnico', 'nota', 'tipo', 'latitude', 'longitude'];
+    required.forEach(name => {
+        if (indexes[name] === -1) errors.push(`Coluna obrigatoria ausente: ${name}.`);
     });
 
     if (errors.length) {
@@ -524,6 +522,13 @@ function validateTabularRows(rows) {
         const tecnico = String(row[indexes.tecnico] ?? '').trim() || '(Sem Tecnico)';
         const latitude = parseCoordinate(row[indexes.latitude]);
         const longitude = parseCoordinate(row[indexes.longitude]);
+        
+        // Colunas opcionais de prioridade e prazo
+        const prazoRaw = indexes.prazo !== -1 ? row[indexes.prazo] : '';
+        const prioridadeRaw = indexes.prioridade !== -1 ? row[indexes.prioridade] : '';
+        const prazoDate = parseDeadline(prazoRaw);
+        const prioridade = parsePriority(prioridadeRaw);
+        
         const rowErrors = [];
 
         if (!nota) rowErrors.push('nota vazia');
@@ -539,7 +544,16 @@ function validateTabularRows(rows) {
         }
 
         seenNotes.add(nota);
-        notes.push({ tecnico, nota, tipo, latitude, longitude });
+        notes.push({ 
+            tecnico, 
+            nota, 
+            tipo, 
+            latitude, 
+            longitude,
+            prazo: prazoRaw ? String(prazoRaw).trim() : '',
+            prazoDate: prazoDate ? prazoDate.toISOString() : null, // salvar como string ISO para serializacao limpa
+            prioridade 
+        });
     }
 
     return {
@@ -563,6 +577,40 @@ function normalizeHeader(value) {
 function parseCoordinate(value) {
     if (typeof value === 'number') return value;
     return parseFloat(String(value ?? '').trim().replace(',', '.'));
+}
+
+function parsePriority(value) {
+    if (value === undefined || value === null) return false;
+    if (typeof value === 'boolean') return value;
+    const str = String(value).trim().toLowerCase();
+    return ['1', 's', 'sim', 'true', 'x', 'yes', 'y'].includes(str);
+}
+
+function parseDeadline(value) {
+    if (value === undefined || value === null) return null;
+    if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+    if (typeof value === 'number') {
+        // Trata numeros seriais do Excel
+        const date = new Date(Math.round((value - 25569) * 86400 * 1000));
+        if (!isNaN(date.getTime())) return date;
+    }
+    const str = String(value).trim();
+    if (!str) return null;
+
+    // Tenta formato DD/MM/YYYY ou DD-MM-YYYY
+    const dmy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (dmy) {
+        const day = parseInt(dmy[1], 10);
+        const month = parseInt(dmy[2], 10) - 1;
+        const year = parseInt(dmy[3], 10);
+        const date = new Date(year, month, day);
+        if (!isNaN(date.getTime())) return date;
+    }
+
+    const date = new Date(str);
+    if (!isNaN(date.getTime())) return date;
+
+    return null;
 }
 
 function escapeHTML(value) {
@@ -800,7 +848,7 @@ function runGrouping() {
     });
 
     // Roda o motor algoritmico do algorithm.js
-    const result = NoteGrouper.groupNotes(state.filteredNotes, numTeams, notesPerTeam, composition, radius, startPoint);
+    const result = NoteGrouper.groupNotes(state.filteredNotes, numTeams, notesPerTeam, composition, radius, startPoint, state.priorityOrder);
     result.warnings.unshift({
         type: 'info',
         message: `Roteirizacao em massa usando ${state.filteredNotes.length} notas (${getSelectedScopeLabel()}). Ponto de partida: ${startPoint.label}.`
@@ -976,10 +1024,14 @@ function renderUnassignedNotesList() {
             </option>`;
         });
 
+        const priorityBadge = note.prioridade ? `<span style="color: var(--accent-orange); font-size: 0.8rem; font-weight: bold; margin-left: 0.25rem;" title="Nota Ancorada / Alta Prioridade">📌</span>` : '';
+        const deadlineLabel = note.prazo ? `<div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 0.1rem;">📅 Prazo: ${note.prazo}</div>` : '';
+
         item.innerHTML = `
             <div class="team-item-info" style="gap: 0.25rem;">
-                <span class="team-name" style="font-size: 0.8rem; font-weight: 600;">Nota ${note.nota} <span style="font-size: 0.72rem; background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.3); padding: 1px 4px; border-radius: 4px; color: var(--accent-rose); font-weight: 700;">${note.tipo}</span></span>
+                <span class="team-name" style="font-size: 0.8rem; font-weight: 600;">Nota ${note.nota}${priorityBadge} <span style="font-size: 0.72rem; background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.3); padding: 1px 4px; border-radius: 4px; color: var(--accent-rose); font-weight: 700;">${note.tipo}</span></span>
                 <span class="team-stats" style="font-size: 0.7rem;">Lat: ${note.latitude.toFixed(4)} | Lng: ${note.longitude.toFixed(4)}</span>
+                ${deadlineLabel}
             </div>
             <select class="sidebar-assign-select" data-note-id="${note.nota}" style="padding: 0.2rem; font-size: 0.75rem; width: 110px; background: #1e293b; color: white; border: 1px solid var(--border-color); border-radius: 4px; outline: none; cursor: pointer;">
                 ${selectOptions}
@@ -1048,10 +1100,14 @@ function renderMapElements() {
             selectOptions += `<option value="${t.id}">${t.name}</option>`;
         });
 
+        const priorityBadge = note.prioridade ? ` <span title="Nota Ancorada / Alta Prioridade">📌</span>` : '';
+        const deadlineLabel = note.prazo ? `<b>Prazo:</b> ${note.prazo}<br>` : '';
+
         const popupContent = `
             <div style="font-family: 'Plus Jakarta Sans', sans-serif; color: #f8fafc; background: #0f172a; padding: 4px;">
-                <b style="color: var(--accent-rose); display: block; margin-bottom: 4px;">! Nota Nao Atribuida: ${note.nota}</b>
+                <b style="color: var(--accent-rose); display: block; margin-bottom: 4px;">! Nota Nao Atribuida: ${note.nota}${priorityBadge}</b>
                 <b>Tipo:</b> ${note.tipo}<br>
+                ${deadlineLabel}
                 <b>Coordenadas:</b> ${note.latitude.toFixed(5)}, ${note.longitude.toFixed(5)}<br>
                 <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
                     <label style="font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">Atribuir a Equipe:</label>
@@ -1144,11 +1200,15 @@ function renderMapElements() {
             });
             selectOptions += `<option value="unassigned">Desalocar Nota (Nao Atribuida)</option>`;
 
+            const priorityBadge = note.prioridade ? ` <span title="Nota Ancorada / Alta Prioridade">📌</span>` : '';
+            const deadlineLabel = note.prazo ? `<b>Prazo:</b> ${note.prazo}<br>` : '';
+
             const popupContent = `
                 <div style="font-family: 'Plus Jakarta Sans', sans-serif; color: #f8fafc; background: #0f172a; padding: 4px;">
-                    <b style="color: ${color}; display: block; margin-bottom: 4px;">* Nota ${note.nota} (${note.tipo})</b>
+                    <b style="color: ${color}; display: block; margin-bottom: 4px;">* Nota ${note.nota} (${note.tipo})${priorityBadge}</b>
                     <b>Equipe:</b> ${team.name}<br>
                     <b>Visita:</b> Sequencia #${numLabel}<br>
+                    ${deadlineLabel}
                     <b>Coordenadas:</b> ${note.latitude.toFixed(5)}, ${note.longitude.toFixed(5)}<br>
                     <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
                         <label style="font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">Mapeamento Manual (Override):</label>
@@ -1230,9 +1290,15 @@ function renderActiveTeamDetails() {
         });
         selectOptions += `<option value="unassigned">Desalocar Nota</option>`;
 
+        const priorityBadge = note.prioridade ? `<span style="color: var(--accent-orange); font-size: 0.8rem; font-weight: bold; margin-left: 0.25rem;" title="Nota Ancorada / Alta Prioridade">📌</span>` : '';
+        const deadlineLabel = note.prazo ? `<div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">📅 Prazo: ${note.prazo}</div>` : '';
+
         row.innerHTML = `
             <td style="font-weight: 700; color: var(--primary);">#${index + 1}</td>
-            <td>${note.nota}</td>
+            <td>
+                <div style="font-weight: 600;">${note.nota}${priorityBadge}</div>
+                ${deadlineLabel}
+            </td>
             <td><span style="background: rgba(255,255,255,0.05); padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600;">${note.tipo}</span></td>
             <td>${note.latitude.toFixed(6)}</td>
             <td>${note.longitude.toFixed(6)}</td>
@@ -1536,11 +1602,20 @@ function renderViabilityPanel() {
         return;
     }
 
+    const totalPriority = state.filteredNotes.filter(n => n.prioridade).length;
+    const totalWithDeadline = state.filteredNotes.filter(n => n.prazo).length;
+
     panel.style.display = 'block';
     panel.innerHTML = `
         <div class="viability-summary ${totalOk ? 'vs-ok' : 'vs-warn'}">
             <span>Resumo: ${numTeams} equipes x ${notesPerTeam} notas = <strong>${totalNeeded} necessarias</strong></span>
             <span>${totalAvailable} disponiveis ${totalOk ? 'OK' : '!'}</span>
+            ${totalPriority > 0 || totalWithDeadline > 0 ? `
+                <div style="width: 100%; display: flex; gap: 1rem; margin-top: 0.25rem; font-size: 0.7rem; opacity: 0.9;">
+                    ${totalPriority > 0 ? `<span>📌 Ancoradas: <strong>${totalPriority}</strong></span>` : ''}
+                    ${totalWithDeadline > 0 ? `<span>📅 Com Prazo: <strong>${totalWithDeadline}</strong></span>` : ''}
+                </div>
+            ` : ''}
         </div>
         <table class="viability-table">
             <thead><tr><th>Tipo</th><th>Necessario</th><th>Disponivel</th><th>Status</th></tr></thead>

@@ -107,8 +107,10 @@ class NoteGrouper {
      * @param {number} notesPerTeam - Total de notas por equipe (ex: 6).
      * @param {Object} composition - Objeto com a cota ideal (ex: { MDFC: 4, ALGC: 2 }).
      * @param {number} maxRadius - Raio limite configurado em metros.
+     * @param {Object} startPoint - Ponto de partida inicial.
+     * @param {Array} priorityOrder - Ordem de criterios de priorizacao.
      */
-    static groupNotes(notes, numTeams, notesPerTeam, composition, maxRadius, startPoint = null) {
+    static groupNotes(notes, numTeams, notesPerTeam, composition, maxRadius, startPoint = null, priorityOrder = ['prioridade', 'prazo', 'tipo', 'distancia']) {
         // Clonar as notas para nao alterar a base original
         let availableNotes = notes.map(n => ({ ...n, latitude: parseFloat(n.latitude), longitude: parseFloat(n.longitude) }));
         
@@ -129,7 +131,7 @@ class NoteGrouper {
         // focado nas notas do tipo mais requisitado na composicao.
         let seedNotes = [];
         const dominantType = Object.keys(composition).sort((a, b) => composition[b] - composition[a])[0];
-        const dominantNotes = availableNotes.filter(n => n.tipo === dominantType);
+        const dominantNotes = dominantType ? availableNotes.filter(n => n.tipo === dominantType) : [];
         
         if (dominantNotes.length >= actualTeamsCount) {
             seedNotes = this.initializeCentroids(dominantNotes, actualTeamsCount);
@@ -149,14 +151,10 @@ class NoteGrouper {
             });
         }
 
-        // 3. Alocacao em Duas Fases
-        // FASE 3A: Alocacao dos tipos EXATOS solicitados dentro do raio R
-        this.allocateExactTypes(teams, availableNotes, composition, maxRadius, warnings);
+        // 3. Alocacao Unificada baseada na Ordem de Prioridades
+        this.allocateNotesUnified(teams, availableNotes, composition, notesPerTeam, maxRadius, priorityOrder, warnings);
 
-        // FASE 3B: Tratamento de Falta de Notas (Substituicao por outros tipos)
-        this.allocateFallbacks(teams, availableNotes, notesPerTeam, maxRadius, warnings);
-
-        // FASE 3C: Limitacao de capacidade por Raio (Se mesmo com fallback nao atingir a capacidade, mantemos apenas o disponivel)
+        // 3B. Limitacao de capacidade por Raio
         this.finalizeTeams(teams, warnings);
 
         // 4. Resolver Rota TSP para cada equipe e recalcular Centroides Finais
@@ -219,118 +217,119 @@ class NoteGrouper {
     }
 
     /**
-     * Fase 3A: Distribui as notas exatamente com o tipo pedido que estejam dentro do raio.
+     * Compara duas notas para determinar qual e a melhor para a equipe de acordo com a prioridade.
+     * Retorna -1 se noteA for melhor, 1 se noteB for melhor, e 0 se empatarem.
      */
-    static allocateExactTypes(teams, availableNotes, composition, maxRadius, warnings) {
-        // Para cada tipo na composicao (ordenados por maior quantidade necessaria primeiro)
-        const sortedTypes = Object.keys(composition).sort((a, b) => composition[b] - composition[a]);
+    static compareNotes(noteA, noteB, team, priorityOrder, composition) {
+        for (const criterion of priorityOrder) {
+            if (criterion === 'prioridade') {
+                if (noteA.prioridade && !noteB.prioridade) return -1;
+                if (!noteA.prioridade && noteB.prioridade) return 1;
+            } else if (criterion === 'prazo') {
+                const dateA = noteA.prazoDate ? new Date(noteA.prazoDate).getTime() : null;
+                const dateB = noteB.prazoDate ? new Date(noteB.prazoDate).getTime() : null;
 
-        sortedTypes.forEach(type => {
-            const targetCount = composition[type];
+                if (dateA !== null && dateB === null) return -1;
+                if (dateA === null && dateB !== null) return 1;
+                if (dateA !== null && dateB !== null) {
+                    if (dateA < dateB) return -1;
+                    if (dateA > dateB) return 1;
+                }
+            } else if (criterion === 'tipo') {
+                const neededA = (composition[noteA.tipo] || 0) - (team.compositionStatus[noteA.tipo] || 0) > 0;
+                const neededB = (composition[noteB.tipo] || 0) - (team.compositionStatus[noteB.tipo] || 0) > 0;
 
-            // Tenta preencher a cota de cada equipe vaga por vaga
-            for (let slot = 0; slot < targetCount; slot++) {
-                // Desempate: equipes com MENOS notas tem prioridade de escolha (evita dominancia por ordem de criacao)
-                const teamsInPriorityOrder = [...teams].sort((a, b) => a.assignedNotes.length - b.assignedNotes.length);
-                teamsInPriorityOrder.forEach(team => {
-                    // Encontra a nota disponivel desse tipo que esta mais proxima do centroide da equipe
-                    let closestNoteIdx = -1;
-                    let minDist = Infinity;
+                if (neededA && !neededB) return -1;
+                if (!neededA && neededB) return 1;
+            } else if (criterion === 'distancia') {
+                const distA = GeocodingUtils.haversineDistance(
+                    team.centroid.latitude, team.centroid.longitude,
+                    noteA.latitude, noteA.longitude
+                );
+                const distB = GeocodingUtils.haversineDistance(
+                    team.centroid.latitude, team.centroid.longitude,
+                    noteB.latitude, noteB.longitude
+                );
 
-                    for (let i = 0; i < availableNotes.length; i++) {
-                        const note = availableNotes[i];
-                        if (note.tipo !== type) continue;
-
-                        const dist = GeocodingUtils.haversineDistance(
-                            team.centroid.latitude, team.centroid.longitude,
-                            note.latitude, note.longitude
-                        );
-
-                        if (dist < minDist) {
-                            minDist = dist;
-                            closestNoteIdx = i;
-                        }
-                    }
-
-                    // Se encontrou uma nota desse tipo e esta dentro do raio limite
-                    if (closestNoteIdx !== -1 && minDist <= maxRadius) {
-                        const assignedNote = availableNotes.splice(closestNoteIdx, 1)[0];
-                        team.assignedNotes.push(assignedNote);
-                        team.compositionStatus[type] = (team.compositionStatus[type] || 0) + 1;
-                        
-                        // Atualiza dinamicamente o centroide temporario para atrair as proximas notas do grupo
-                        team.centroid = GeocodingUtils.getCentroid(team.assignedNotes);
-                    }
-                });
+                if (distA < distB) return -1;
+                if (distA > distB) return 1;
             }
-        });
+        }
+        return 0;
     }
 
     /**
-     * Fase 3B: Completa as vagas restantes com QUALQUER outro tipo disponivel dentro do raio.
-     * Gera os avisos exigidos pelo usuario.
+     * Alocacao de notas unificada baseada na prioridade multicriterio.
      */
-    static allocateFallbacks(teams, availableNotes, notesPerTeam, maxRadius, warnings) {
-        // Desempate: equipes com menos notas recebem fallbacks primeiro
-        const sortedTeams = [...teams].sort((a, b) => a.assignedNotes.length - b.assignedNotes.length);
-        sortedTeams.forEach(team => {
-            const currentCount = team.assignedNotes.length;
-            const needed = notesPerTeam - currentCount;
+    static allocateNotesUnified(teams, availableNotes, composition, notesPerTeam, maxRadius, priorityOrder, warnings) {
+        for (let slot = 0; slot < notesPerTeam; slot++) {
+            // Desempate: equipes com MENOS notas tem prioridade para escolher seu proximo slot (justica de distribuicao)
+            const teamsInPriorityOrder = [...teams].sort((a, b) => a.assignedNotes.length - b.assignedNotes.length);
+            
+            teamsInPriorityOrder.forEach(team => {
+                if (team.assignedNotes.length >= notesPerTeam) return;
 
-            if (needed <= 0) return;
-
-            let fallbackCount = 0;
-
-            // Busca qualquer nota disponivel mais proxima dentro do raio R
-            for (let slot = 0; slot < needed; slot++) {
-                let closestNoteIdx = -1;
-                let minDist = Infinity;
+                let bestNoteIdx = -1;
 
                 for (let i = 0; i < availableNotes.length; i++) {
                     const note = availableNotes[i];
+
                     const dist = GeocodingUtils.haversineDistance(
                         team.centroid.latitude, team.centroid.longitude,
                         note.latitude, note.longitude
                     );
 
-                    if (dist < minDist) {
-                        minDist = dist;
-                        closestNoteIdx = i;
+                    if (dist > maxRadius) continue;
+
+                    if (bestNoteIdx === -1) {
+                        bestNoteIdx = i;
+                    } else {
+                        const currentBest = availableNotes[bestNoteIdx];
+                        const comparison = this.compareNotes(note, currentBest, team, priorityOrder, composition);
+                        if (comparison < 0) {
+                            bestNoteIdx = i;
+                        }
                     }
                 }
 
-                if (closestNoteIdx !== -1 && minDist <= maxRadius) {
-                    const assignedNote = availableNotes.splice(closestNoteIdx, 1)[0];
+                if (bestNoteIdx !== -1) {
+                    const assignedNote = availableNotes.splice(bestNoteIdx, 1)[0];
                     team.assignedNotes.push(assignedNote);
                     
                     const type = assignedNote.tipo;
                     team.compositionStatus[type] = (team.compositionStatus[type] || 0) + 1;
                     
-                    fallbackCount++;
-                    // Atualiza centroide
+                    // Atualiza centroide dinamicamente
                     team.centroid = GeocodingUtils.getCentroid(team.assignedNotes);
                 }
-            }
+            });
+        }
+
+        // Gera os avisos de fallback comparando a cota exigida com a distribuicao real obtida
+        teams.forEach(team => {
+            let fallbackCount = 0;
+            Object.entries(team.compositionStatus).forEach(([type, count]) => {
+                const target = composition[type] || 0;
+                if (count > target) {
+                    fallbackCount += (count - target);
+                }
+            });
 
             if (fallbackCount > 0) {
                 warnings.push({
                     type: 'warning',
                     teamId: team.id,
-                    message: `A ${team.name} teve ${fallbackCount} nota(s) preenchida(s) com outros tipos devido a falta de tipos solicitados dentro do raio de ${maxRadius}m.`
+                    message: `A ${team.name} teve ${fallbackCount} nota(s) preenchida(s) com tipos de fallbacks ou alem do ideal devido a priorizacao/falta de tipo dentro de ${maxRadius}m.`
                 });
             }
         });
     }
 
     /**
-     * Fase 3C: Se apos todas as tentativas, a equipe ainda nao tiver a quantidade requisitada
-     * (porque nao ha notas suficientes dentro do raio limitador de nenhuma especie),
-     * mantem-se a quantidade disponivel (ex: 4 notas em vez de 6).
+     * Fase finalizadora de capacidade.
      */
     static finalizeTeams(teams, warnings) {
         teams.forEach(team => {
-            // Apenas verifica se a equipe ficou com menos notas do que o ideal originalmente pedido
-            // mas nao ha o que fazer, mantem a quantidade disponivel localmente respeitando o raio.
             const totalAssigned = team.assignedNotes.length;
             if (totalAssigned === 0) {
                 warnings.push({
@@ -339,8 +338,6 @@ class NoteGrouper {
                     message: `A ${team.name} ficou vazia! Nenhuma nota de qualquer tipo pode ser encontrada dentro do raio limite de acao.`
                 });
             } else {
-                // Alerta informativo caso tenha ficado com capacidade reduzida
-                // Isso cobre o exemplo do usuario: "usuario pede 6 notas mas so e possivel distribuir 4"
                 warnings.push({
                     type: 'info',
                     teamId: team.id,
